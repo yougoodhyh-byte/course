@@ -1,5 +1,4 @@
-/* Public browser configuration only. Never place a secret/service_role key here. */
 window.TEACHING_CLOUD_CONFIG = {
-  url: "",
-  publishableKey: ""
+  "url": "https://oyihlolzwncfwuphidhw.supabase.co",
+  "publishableKey": "sb_publishable_A4tAbIgKtdbA5mac4vPQUg_xHk-BV9N"
 };
