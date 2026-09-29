@@ -420,8 +420,9 @@ function renderTodayReminders(){
  box.innerHTML=due.length?due.map(n=>`<article class="today-reminder-card">
    <div class="today-reminder-mark">${icon('checklist')}</div>
    <div class="today-reminder-content"><div class="today-reminder-label">今日重要提醒</div><h2>${esc(n.title)}</h2>${n.description?`<p>${esc(n.description)}</p>`:''}<small>${esc(today.replaceAll('-','.'))}</small>
-    <div class="today-reminder-actions"><button class="today-reminder-done" data-action="complete-reminder" data-note="${esc(n.id)}">${icon('check')} 已完成</button><button class="today-reminder-dismiss" data-action="dismiss-reminder" data-note="${esc(n.id)}" title="仅擦除本次提醒，不改变事项状态">擦除</button></div>
+    <div class="today-reminder-actions"><button class="today-reminder-done" data-action="complete-reminder" data-note="${esc(n.id)}"><span class="today-reminder-done-box" aria-hidden="true"></span><span>已完成</span></button></div>
    </div>
+   <button class="today-reminder-close" data-action="dismiss-reminder" data-note="${esc(n.id)}" aria-label="擦除提醒：${esc(n.title)}" title="擦除后不再提醒">×</button>
   </article>`).join(''):'';
  fillIcons();
 }
