@@ -419,16 +419,22 @@ function renderTodayReminders(){
  box.hidden=!due.length;
  box.innerHTML=due.length?due.map(n=>`<article class="today-reminder-card">
    <div class="today-reminder-mark">${icon('checklist')}</div>
-   <div class="today-reminder-content"><div class="today-reminder-label">今日重要提醒</div><h2>${esc(n.title)}</h2>${n.description?`<p>${esc(n.description)}</p>`:''}<small>${esc(today.replaceAll('-','.'))}</small></div>
-   <button class="today-reminder-close" data-action="dismiss-reminder" data-note="${esc(n.id)}" aria-label="关闭提醒：${esc(n.title)}" title="关闭后不再提醒">×</button>
+   <div class="today-reminder-content"><div class="today-reminder-label">今日重要提醒</div><h2>${esc(n.title)}</h2>${n.description?`<p>${esc(n.description)}</p>`:''}<small>${esc(today.replaceAll('-','.'))}</small>
+    <div class="today-reminder-actions"><button class="today-reminder-done" data-action="complete-reminder" data-note="${esc(n.id)}">${icon('check')} 已完成</button><button class="today-reminder-dismiss" data-action="dismiss-reminder" data-note="${esc(n.id)}" title="仅擦除本次提醒，不改变事项状态">擦除</button></div>
+   </div>
   </article>`).join(''):'';
  fillIcons();
+}
+function completeReminder(noteId){
+ const n=data.notes.find(n=>n.id===noteId);if(!n||n.date!==today)return;
+ n.done=true;
+ save();renderTodayReminders();renderNotes();toast('已标记为完成，并同步到“重要事项”。');
 }
 function dismissReminder(noteId){
  const n=data.notes.find(n=>n.id===noteId);if(!n||n.date!==today)return;
  if(!data.reminderDismissed)data.reminderDismissed={};
  data.reminderDismissed[reminderKey(n)]=true;
- save();renderTodayReminders();toast('已关闭提醒；这项事项不会再次弹出。');
+ save();renderTodayReminders();toast('已擦除本次提醒；“重要事项”中的事项状态不变。');
 }
 function renderNotesCount(){const n=data.notes.filter(n=>!n.done).length;$('#nav-note-count').textContent=n;$('#nav-note-count').hidden=!n;}
 function renderNotes(){
@@ -634,6 +640,7 @@ document.addEventListener('click',async event=>{
  case 'edit-slot-evening':setEditorChecks('edit-slot',v=>C.slotIndex(v)>=10);break;
  case 'edit-slot-clear':setEditorChecks('edit-slot',()=>false);break;
  case 'add-note':openNote();break;
+ case 'complete-reminder':completeReminder(b.dataset.note);break;
  case 'dismiss-reminder':dismissReminder(b.dataset.note);break;
  case 'edit-note':openNote(b.dataset.note);break;
  case 'delete-note':await deleteNote();break;
@@ -701,7 +708,7 @@ try{
  cloud=new window.TeachingCloud({getData:()=>clone(data),apply:applyCloudData,normalize:value=>C.normalizeBuses(value),guest:()=>clone(guestSnapshot),guestDirty:()=>guestWasDirty,confirm:confirmAction,download,notify:toast,isEditing:()=>!!document.querySelector('#course-dialog[open],#note-dialog[open],#service-dialog[open],#manage-dialog[open]')});
 }catch(error){$('#storage-banner').hidden=false;$('#storage-banner').textContent='同步组件未能启动，当前仅本机保存：'+error.message;}
 // Prevent edits while changing accounts / performing the initial cloud read.
-const writes=new Set(['add-course','add-course-week','add-course-slot','edit-record','edit-group','add-course-from-manage','delete-editing','add-note','edit-note','delete-note','dismiss-reminder','add-service','edit-service','delete-service','import-json','reset','use-published','keep-local']);
+const writes=new Set(['add-course','add-course-week','add-course-slot','edit-record','edit-group','add-course-from-manage','delete-editing','add-note','edit-note','delete-note','complete-reminder','dismiss-reminder','add-service','edit-service','delete-service','import-json','reset','use-published','keep-local']);
 document.addEventListener('click',event=>{
  if(cloud?.isLocked()&&(writes.has(event.target.closest('[data-action]')?.dataset.action)||event.target.matches('[data-note-check],#bus-holiday'))){event.preventDefault();event.stopImmediatePropagation();toast('请先完成云端读取，或在“账号与同步”中重试。',true);}
 },true);
