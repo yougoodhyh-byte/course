@@ -107,7 +107,26 @@
     });
     return data;
   }
-  const api={TIMES,DAYS,START,END,WEEK_COUNT,localISO,dayValue,addDays,currentWeek,defaultWeek,weekRange,dateFor,shortDate,slotIndex,key,identity,sortRecords,compactNumbers,groups,visibleSlots,conflicts,validateData,pad};
+
+  function normalizeBuses(data){
+    const official=globalThis.TEACHING_BUSES;
+    if(official){data.buses=JSON.parse(JSON.stringify(official.rows));data.busVersion=official.version;}
+    if(!data.busHolidays)data.busHolidays={};
+    if(!data.busHolidays||Array.isArray(data.busHolidays)||typeof data.busHolidays!=='object')throw new Error('节假日标记格式无效。');
+    for(const [date,value] of Object.entries(data.busHolidays))if(!Number.isFinite(dayValue(date))||typeof value!=='boolean')throw new Error('节假日标记无效。');
+    // The publication revision is metadata, not a user's editable field.
+    data.revision='2026-09-29-bus-cloud-v2';
+    return validateData(data);
+  }
+  function busesFor(buses,date,mode='date',holiday=false){
+    if(mode==='weekday')return buses.filter(b=>b.schedule==='weekday'||b.schedule==='wednesday');
+    if(mode==='weekend')return buses.filter(b=>b.schedule==='weekend');
+    if(!Number.isFinite(dayValue(date))||date<'2026-09-07')return [];
+    const weekday=new Date(dayValue(date)*DAY).getUTCDay();
+    const isWeekend=weekday===0||weekday===6,inExtra=date>='2026-09-21'&&date<='2027-01-10';
+    return buses.filter(b=>isWeekend?(b.schedule==='weekend'&&(!b.extra||inExtra)):(b.schedule==='weekday'||(b.schedule==='wednesday'&&weekday===3&&inExtra&&!holiday)));
+  }
+  const api={normalizeBuses,busesFor,TIMES,DAYS,START,END,WEEK_COUNT,localISO,dayValue,addDays,currentWeek,defaultWeek,weekRange,dateFor,shortDate,slotIndex,key,identity,sortRecords,compactNumbers,groups,visibleSlots,conflicts,validateData,pad};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;
   else root.TeachingCore=api;
 })(typeof globalThis!=='undefined'?globalThis:this);
@@ -150,7 +169,8 @@ const ICONS={
 };
 const icon=name=>`<svg class="icon" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name]||ICONS.grid}</svg>`;
 function fillIcons(){ $$('[data-icon]:not([data-icon-ready])').forEach(el=>{el.innerHTML=icon(el.dataset.icon);el.dataset.iconReady='1';}); }
-const published=C.validateData(JSON.parse($('#seed-data').textContent));
+const published=C.normalizeBuses(JSON.parse($('#seed-data').textContent));
+let cloud=null, cloudRenderPending=false, guestSnapshot=null, guestWasDirty=false, legacyReadFailed=false;
 const STORAGE_KEY='teaching-workspace:2026-fall:v1:'+location.pathname.replace(/index\.html$/,'');
 let data=clone(published), today=C.localISO(), selectedWeeks=new Set([C.defaultWeek(today)]), currentTab='schedule', courseFilter='', showEmpty=false, viewMode='grid', noteFilter='all';
 let dirty=false, publishedRevision=published.revision, cacheWriteFailed=false;
@@ -158,19 +178,15 @@ let editingIds=[], editingBulk=false, editingNoteId=null, editingServiceId=null,
 let hasNewRelease=false;
 try{
  const saved=localStorage.getItem(STORAGE_KEY);
- if(saved){
-   const cached=JSON.parse(saved);C.validateData(cached.data);
-   if(cached.publishedRevision!==published.revision&&!cached.dirty){
-     data=clone(published);
-   }else{
-     data=cached.data;dirty=!!cached.dirty;publishedRevision=cached.publishedRevision;
-     hasNewRelease=cached.publishedRevision!==published.revision;
-   }
- }
+ if(saved){const cached=JSON.parse(saved);data=C.normalizeBuses(cached.data);dirty=!!cached.dirty;}
+ publishedRevision=published.revision;hasNewRelease=false;
 }catch(error){
+ legacyReadFailed=true;
+ try{const raw=localStorage.getItem(STORAGE_KEY);if(raw)localStorage.setItem(STORAGE_KEY+':unreadable-backup:'+Date.now(),raw);}catch{}
  $('#storage-banner').hidden=false;
- $('#storage-banner').textContent='未能读取本机保存的数据，现展示发布课表。不要清除浏览器数据；可用 JSON 备份恢复。原因：'+error.message;
+ $('#storage-banner').textContent='本机数据未能读取，原缓存未删除。请先导出旧版备份；当前展示初始课表。'+error.message;
 }
+guestSnapshot=clone(data);guestWasDirty=dirty;
 const courseById=id=>data.courses.find(c=>c.id===id);
 const palette=['#6956D9','#2974B5','#B27727','#208578','#AF4E81','#597C3C','#B76542','#577783','#8F64B0','#85604C'];
 function nextColor(){const used=new Set(data.courses.map(c=>c.color.toUpperCase()));return palette.find(c=>!used.has(c.toUpperCase()))||'#'+Math.floor(0x445566+Math.random()*0x666666).toString(16).padStart(6,'0');}
@@ -182,14 +198,19 @@ function toast(message,error=false){
  const el=document.createElement('div');el.className='toast'+(error?' error':'');el.textContent=message;$('#toasts').append(el);setTimeout(()=>el.remove(),4000);
 }
 function save(label='已保存到本机',markDirty=true){
- if(markDirty) dirty=true;
+ if(markDirty)dirty=true;
+ if(cloud?.user){
+   const ok=cloud.capture();cacheWriteFailed=!ok;return ok;
+ }
+ guestSnapshot=clone(data);guestWasDirty=dirty;
  try{
   localStorage.setItem(STORAGE_KEY,JSON.stringify({data,dirty,publishedRevision,updatedAt:new Date().toISOString()}));
-  cacheWriteFailed=false;$('#save-status').classList.remove('unsaved');$('#save-status').innerHTML='<i></i>'+esc(label);$('#save-status').title='保存在当前浏览器，不会自动同步至 GitHub 或其他设备。';
+  cacheWriteFailed=false;
+  if(cloud)cloud.render();else{$('#save-status').textContent='仅本机';$('#save-status').title='未连接云端；修改仅保存在此浏览器。';}
   return true;
  }catch(error){
-  cacheWriteFailed=true;$('#save-status').classList.add('unsaved');$('#save-status').innerHTML='<i></i>尚未保存';
-  $('#storage-banner').hidden=false;$('#storage-banner').textContent='浏览器阻止保存或本地空间已满。修改仅留在当前页面，关闭后可能丢失；请立即在“数据与备份”中导出 JSON。';
+  cacheWriteFailed=true;$('#save-status').classList.add('unsaved');$('#save-status').textContent='尚未保存';
+  $('#storage-banner').hidden=false;$('#storage-banner').textContent='本机空间不足或浏览器禁止保存，请立即导出备份，避免关闭后丢失修改。';
   return false;
  }
 }
@@ -213,7 +234,7 @@ function renderClock(){
  $('#semester-track').style.width=week?((week-1)/20*100)+'%':(C.dayValue(today)<C.dayValue(C.START)?'0%':'100%');
  $('#current-week-button').textContent=week?'回到当前周':`定位第${C.defaultWeek(today)}周`;
  const zone=Intl.DateTimeFormat().resolvedOptions().timeZone||'设备本地时区';
- $('#device-date').textContent=`设备日期 ${today.replaceAll('-','.')} · ${zone} · 自动定位周次`;
+ $('#device-date').textContent=today.replaceAll('-','.');
  const label=week?`第${week}周 · ${range.start}—${range.end}`:(C.dayValue(today)<C.dayValue(C.START)?'学期尚未开始':'本学期已结束');
  $('#device-date').title=label+'。以本机日历日期判断，不使用固定的“当前周”标记。';
 }
@@ -255,7 +276,7 @@ function renderCourseMeta(){
 function courseCard(record){
  const c=courseById(record.courseId),p=C.TIMES[C.slotIndex(record.slot)];
  const accessibility=`${c.name} 第${record.week}周 ${C.DAYS[record.day-1]} ${p.label}`;
- return `<div class="course-cell" style="${courseStyle(c)}"><button class="course-title" data-action="edit-record" data-record="${esc(record.id)}" aria-label="编辑${esc(accessibility)}"><span>${esc(c.name)}</span>${icon('edit')}</button><div class="course-location">${esc(record.location||'地点待填写')}</div><textarea class="progress-input" rows="1" maxlength="2000" data-progress="${esc(record.id)}" placeholder="记录进度（选填）" aria-label="${esc(accessibility)} 上课进度（选填）">${esc(record.progress)}</textarea></div>`;
+ return `<div class="course-cell" style="${courseStyle(c)}"><button class="course-title" data-action="edit-record" data-record="${esc(record.id)}" aria-label="编辑${esc(accessibility)}"><span>${esc(c.name)}</span>${icon('edit')}</button><div class="course-location">${esc(record.location||'')}</div><textarea class="progress-input" rows="1" maxlength="2000" data-progress="${esc(record.id)}" placeholder="记录进度（选填）" aria-label="${esc(accessibility)} 上课进度（选填）">${esc(record.progress)}</textarea></div>`;
 }
 function boardHeader(week,records){
  const {start,end}=C.weekRange(week),current=C.currentWeek(today)===week;
@@ -268,7 +289,7 @@ function daysHeader(week){
  }).join('');
 }
 function emptyWeek(week,hasFilteredOut){
- return `<div class="empty-week-days">${C.DAYS.map((d,i)=>{const iso=C.dateFor(week,i+1);return `<div class="${iso===today?'is-today':''}">${d}${iso===today?' · 今天':''}<span>${C.shortDate(iso)}</span></div>`;}).join('')}</div><div class="empty-week">${icon('calendar')}<h3>${hasFilteredOut?'本周没有符合筛选条件的课程':'这一周，暂无课程安排'}</h3><p>${hasFilteredOut?'切换到“全部课程”可查看其他课程。':'原表没有记录的周次不会自动补课。可点击下方添加，或展开全部空节次。'}</p><button class="button small" data-action="add-course-week" data-week="${week}">${icon('plus')}为第${week}周添加课程</button></div>`;
+ return `<div class="empty-week-days">${C.DAYS.map((d,i)=>{const iso=C.dateFor(week,i+1);return `<div class="${iso===today?'is-today':''}">${d}${iso===today?' · 今天':''}<span>${C.shortDate(iso)}</span></div>`;}).join('')}</div><div class="empty-week">${icon('calendar')}<h3>${hasFilteredOut?'本周没有符合筛选条件的课程':'这一周，暂无课程安排'}</h3><p>${hasFilteredOut?'切换到“全部课程”可查看其他课程。':'可添加课程或展开空节次。'}</p><button class="button small" data-action="add-course-week" data-week="${week}">${icon('plus')}为第${week}周添加课程</button></div>`;
 }
 function gridBoard(week,records){
  const periods=C.visibleSlots(records,week,showEmpty);
@@ -367,7 +388,7 @@ function renderNotes(){
  $('#notes-list').innerHTML=notes.length?notes.map(n=>{
   const overdue=n.date&&n.date<today&&!n.done,todayDue=n.date===today&&!n.done;
   return `<article class="note-card${n.done?' is-done':''}"><label class="note-check"><span class="sr-only">${n.done?'标为未完成':'完成'}：${esc(n.title)}</span><input type="checkbox" data-note-check="${esc(n.id)}" ${n.done?'checked':''}></label><div class="note-content"><h3><span>${esc(n.title)}</span>${n.done?'<span class="tag done">已完成</span>':overdue?'<span class="tag overdue">已到期</span>':todayDue?'<span class="tag current">今天</span>':''}</h3><small>${n.date?esc(n.date.replaceAll('-','.')):'未设置日期'}</small>${n.description?`<p>${esc(n.description)}</p>`:''}</div><button class="icon-button" data-action="edit-note" data-note="${esc(n.id)}" aria-label="编辑事项：${esc(n.title)}">${icon('edit')}</button></article>`;
- }).join(''):`<div class="large-empty"><span class="empty-symbol">${icon('checklist')}</span><h2>${data.notes.length?'这个分类下暂无事项':'还没有重要事项'}</h2><p>${data.notes.length?'切换其他分类，或添加新的事项。':'上传的表格中“重要事项”为空。可在这里添加考试、备课、作业提交等提醒，不会预填虚构事项。'}</p><button class="button primary" data-action="add-note">${icon('plus')}添加第一项提醒</button></div>`;
+ }).join(''):`<div class="large-empty"><span class="empty-symbol">${icon('checklist')}</span><h2>${data.notes.length?'这个分类下暂无事项':'还没有重要事项'}</h2><p>${data.notes.length?'切换其他分类，或添加新的事项。':'添加需要记录的教学事项。'}</p><button class="button primary" data-action="add-note">${icon('plus')}添加第一项提醒</button></div>`;
  renderNotesCount();
 }
 function openNote(id=null){
@@ -386,11 +407,20 @@ async function deleteNote(){
  data.notes=data.notes.filter(n=>n.id!==editingNoteId);save();$('#note-dialog').close();renderNotes();notifySaved('事项已删除。');
 }
 function renderServices(){
- const direction=$('#bus-filter').value;
- const buses=data.buses.filter(b=>direction==='all'||(direction==='out'?b.from.includes('桑浦山'):b.from.includes('东海岸'))).sort((a,b)=>a.departure.localeCompare(b.departure)||a.from.localeCompare(b.from,'zh-CN'));
- $('#bus-count').textContent=`${buses.length} 班`;
- $('#bus-body').innerHTML=buses.map(b=>`<tr class="${b.type==='增开'?'extra-row':''}"><td class="bus-time">${esc(b.departure||'未提供')}</td><td class="arrival-time">${esc(b.arrival||'未提供')}</td><td>${esc(b.from)} <span aria-hidden="true">→</span> ${esc(b.to)}</td><td>${esc(b.vehicles||'未提供')}${b.vehicles?' 辆':''}</td><td><span class="tag ${b.type==='增开'?'overdue':'subtle'}">${esc(b.type)}</span>${b.note?`<small>${esc(b.note)}</small>`:''}</td></tr>`).join('');
- $('#service-list').innerHTML=data.services.length?`<div class="service-links">${data.services.map(s=>`<article class="service-link"><span class="service-icon" style="width:33px;height:33px;border-radius:10px">${icon('link')}</span><button class="icon-button service-edit" data-action="edit-service" data-service="${esc(s.id)}" aria-label="编辑服务：${esc(s.title)}">${icon('edit')}</button><h3>${esc(s.title)}</h3>${s.description?`<p>${esc(s.description)}</p>`:''}${s.url?`<a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">打开服务 ${icon('arrow-up-right')}</a>`:''}</article>`).join('')}</div>`:'<div class="service-placeholder">原表暂无其他服务内容。点击“添加服务”可保存常用链接或服务说明。</div>';
+ const direction=$('#bus-filter').value,mode=$('#bus-mode').value;
+ if(!$('#bus-date').value)$('#bus-date').value=today;
+ const date=$('#bus-date').value,holiday=!!data.busHolidays?.[date];
+ const buses=C.busesFor(data.buses,date,mode,holiday).filter(b=>direction==='all'||(direction==='out'?b.from.includes('桑浦山'):b.from.includes('东海岸'))).sort((a,b)=>a.departure.localeCompare(b.departure)||a.order-b.order);
+ const weekday=Number.isFinite(C.dayValue(date))?new Date(C.dayValue(date)*86400000).getUTCDay():null;
+ $('#bus-date-label').hidden=mode!=='date';
+ $('#bus-holiday-control').hidden=mode!=='date'||weekday!==3||date<'2026-09-21'||date>'2027-01-10';
+ $('#bus-holiday').checked=holiday;
+ $('#bus-day-label').textContent=mode==='date'?(date+' · '+(weekday===0||weekday===6?'周末班次':'工作日班次')):mode==='weekday'?'周一至周五':'周六周日';
+ $('#bus-count').textContent=buses.length+' 条发车记录';
+ $('#bus-rule-summary').textContent=mode==='date'?'按原表筛选；条件增班及节假日运行情况请核对学校通知。':'含条件增班，适用范围见各行说明。';
+ $('#bus-body').innerHTML=buses.length?buses.map(b=>`<tr data-bus-id="${esc(b.id)}" class="${b.extra?'extra-row':''}"><td class="bus-time">${esc(b.departure)}</td><td class="arrival-time">${esc(b.arrival||'未提供')}</td><td>${esc(b.from)} <span aria-hidden="true">→</span> ${esc(b.to)}</td><td>${esc(b.trip)}<small>${b.vehicles?esc(b.vehicles)+' 辆':'车辆数量未提供'}</small></td><td>${b.extra?'<span class="tag overdue">条件增班</span>':'<span class="tag subtle">常规</span>'}${b.note?`<small>${esc(b.note)}</small>`:''}</td></tr>`).join(''):'<tr><td class="bus-empty" colspan="5">该日期或方向没有符合原表范围的班次。</td></tr>';
+ $('.custom-services').hidden=!data.services.length;
+ $('#service-list').innerHTML=data.services.length?`<div class="service-links">${data.services.map(s=>`<article class="service-link"><span class="service-icon" style="width:33px;height:33px;border-radius:10px">${icon('link')}</span><button class="icon-button service-edit" data-action="edit-service" data-service="${esc(s.id)}" aria-label="编辑服务：${esc(s.title)}">${icon('edit')}</button><h3>${esc(s.title)}</h3>${s.description?`<p>${esc(s.description)}</p>`:''}${s.url?`<a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">打开服务 ${icon('arrow-up-right')}</a>`:''}</article>`).join('')}</div>`:'';
 }
 function openService(id=null){
  editingServiceId=id;const s=data.services.find(s=>s.id===id);
@@ -438,32 +468,41 @@ async function exportHTML(){
  doc.querySelectorAll('input:not([type="checkbox"]):not([type="color"]),textarea').forEach(el=>{el.removeAttribute('value');if(el.tagName==='TEXTAREA')el.textContent='';});
  doc.querySelectorAll('input[type="checkbox"]').forEach(el=>el.removeAttribute('checked'));
  doc.querySelector('#save-status').innerHTML='<i></i>已载入课表';
- // The published repository uses separate assets. Keep downloaded releases
- // self-contained so replacing only index.html still works as before.
+ // Bundle only same-directory assets. Authentication sessions are never serialized.
  try{
-  const [css,js]=await Promise.all(['./style.css','./script.js'].map(async path=>{
-   const response=await fetch(path);if(!response.ok)throw new Error(path);
-   return response.text();
-  }));
-  const link=doc.querySelector('link[href="./style.css"]');
-  const style=doc.ownerDocument.createElement('style');style.textContent=css;link.replaceWith(style);
-  const source=doc.querySelector('script[src="./script.js"]');
-  const script=doc.ownerDocument.createElement('script');script.textContent=js.replaceAll('</script','<\\/script');source.replaceWith(script);
- }catch(error){toast('生成失败：无法读取页面资源。请刷新后重试。',true);return;}
+  for(const link of [...doc.querySelectorAll('link[rel="stylesheet"]')]){
+   const response=await fetch(link.getAttribute('href'));if(!response.ok)throw new Error('CSS');
+   const style=document.createElement('style');style.textContent=await response.text();link.replaceWith(style);
+  }
+  for(const source of [...doc.querySelectorAll('script[src]')]){
+   const response=await fetch(source.getAttribute('src'));if(!response.ok)throw new Error('JS');
+   const script=document.createElement('script');script.textContent=(await response.text()).replaceAll('</script','<\/script');source.replaceWith(script);
+  }
+  for(const id of ['cloud-user','cloud-message','cloud-error','cloud-conflict-detail'])doc.querySelector('#'+id).textContent='';
+  doc.querySelector('#cloud-entry').textContent='登录同步';
+  doc.querySelector('#cloud-account').hidden=true;doc.querySelector('#cloud-conflict').hidden=true;
+  // Embed the source timetable too, so a single-file release has no broken PDF link.
+  if(!doc.querySelector('#shuttle-pdf-data')){
+   const response=await fetch('./assets/shuttle-20260907.pdf');if(!response.ok)throw new Error('PDF');
+   const bytes=new Uint8Array(await response.arrayBuffer());let binary='';bytes.forEach(b=>binary+=String.fromCharCode(b));
+   const source=document.createElement('script');source.id='shuttle-pdf-data';source.type='application/json';source.textContent=JSON.stringify({base64:btoa(binary)});doc.querySelector('body').append(source);
+  }
+  const pdfLink=doc.querySelector('.bus-rules a');if(pdfLink)pdfLink.setAttribute('href','./assets/shuttle-20260907.pdf');
+ }catch(error){toast('生成失败：请在线打开网站后重试。'+error.message,true);return;}
  download('index.html','<!DOCTYPE html>\n'+doc.outerHTML,'text/html;charset=utf-8');toast('index.html 已生成；上传并替换仓库首页即可发布。');
 }
 async function importJSON(file){
  if(!file)return;
  try{
   if(file.size>8*1024*1024)throw new Error('文件超过 8 MB 限制。');
-  const imported=C.validateData(JSON.parse(await file.text()));
-  if(!await confirmAction(`将用备份中的 ${imported.records.length} 节课程、${imported.notes.length} 条事项及其他服务替换本机数据。\n当前未备份的修改将被覆盖。`,'导入备份','导入并替换'))return;
+  const imported=C.normalizeBuses(JSON.parse(await file.text()));
+  if(!await confirmAction(`将用备份中的 ${imported.records.length} 节课程、${imported.notes.length} 条事项及其他服务替换当前资料（已登录时会同步到云端）。\n当前未备份的修改将被覆盖。`,'导入备份','导入并替换'))return;
   data=clone(imported);publishedRevision=published.revision;hasNewRelease=false;save();refreshAll();notifySaved('备份已导入。');
  }catch(error){toast('导入失败：'+error.message,true);}
  finally{$('#import-file').value='';}
 }
 async function resetToPublished(){
- if(!await confirmAction('这会覆盖本机全部修改，恢复当前 HTML 文件内的发布课表。\n建议先导出 JSON 备份。此操作不会修改 GitHub 仓库。','恢复发布版本','确认恢复'))return;
+ if(!await confirmAction('这会替换当前全部修改，恢复初始课表。已登录时，替换结果会同步至其他设备。\n建议先导出 JSON 备份。','恢复发布版本','确认恢复'))return;
  data=clone(published);dirty=false;publishedRevision=published.revision;hasNewRelease=false;courseFilter='';save('已载入发布版本',false);refreshAll();notifySaved('已恢复当前发布版本。');
 }
 function setEditorChecks(name,test){$$(`input[name="${name}"]`).forEach(el=>el.checked=test(el.value));updateTargetCount();}
@@ -471,7 +510,7 @@ function checkDate(){
  const next=C.localISO();if(next===today)return;
  const oldWeek=C.currentWeek(today);today=next;
  if(C.currentWeek(today)!==oldWeek)selectedWeeks=new Set([C.defaultWeek(today)]);
- refreshSchedule();if(currentTab==='notes')renderNotes();
+ refreshSchedule();if(currentTab==='notes')renderNotes();if(currentTab==='services'){if($('#bus-mode').value==='date')$('#bus-date').value=today;renderServices();}
  // Keep editor selections intact while updating only genuine current badges.
  if($('#course-dialog').open){const chosen=new Set(checkedValues('edit-week',true));$('#edit-weeks').innerHTML=weekOptions(chosen,'edit-week');}
  if($('#calendar-dialog').open){$('#calendar-dialog').close();showCalendar();}
@@ -535,7 +574,8 @@ document.addEventListener('change',event=>{
  else if(el.id==='show-empty'){showEmpty=el.checked;refreshSchedule();}
  else if(el.name==='edit-week'||el.name==='edit-slot')updateTargetCount();
  else if(el.dataset.noteCheck){const n=data.notes.find(n=>n.id===el.dataset.noteCheck);if(n){n.done=el.checked;save();renderNotes();}}
- else if(el.id==='bus-filter')renderServices();
+ else if(['bus-filter','bus-mode','bus-date'].includes(el.id))renderServices();
+ else if(el.id==='bus-holiday'){if(el.checked)data.busHolidays[$('#bus-date').value]=true;else delete data.busHolidays[$('#bus-date').value];save();renderServices();}
  else if(el.id==='import-file')importJSON(el.files[0]);
 });
 document.addEventListener('input',event=>{
@@ -560,5 +600,30 @@ setInterval(checkDate,30000);
 // Always start with the true current week (or the nearest semester boundary),
 // never with a previously chosen review week from localStorage.
 refreshAll();showTab(['notes','services'].includes(location.hash.slice(1))?location.hash.slice(1):'schedule');
-if(!hasNewRelease)save(dirty?'已读取本机修改':'已载入课表',false);
+if(!hasNewRelease&&!legacyReadFailed)save(dirty?'已读取本机修改':'已载入课表',false);
+
+function applyCloudData(next){
+ const normalized=C.normalizeBuses(clone(next));
+ if(JSON.stringify(data)===JSON.stringify(normalized))return;
+ const el=document.activeElement,focus=el?.dataset?.progress?{id:el.dataset.progress,start:el.selectionStart,end:el.selectionEnd}:null;
+ data=normalized;refreshAll();
+ if(focus){const target=$$('[data-progress]').find(x=>x.dataset.progress===focus.id);if(target){target.focus({preventScroll:true});target.setSelectionRange(Math.min(focus.start,target.value.length),Math.min(focus.end,target.value.length));}}
+}
+try{
+ cloud=new window.TeachingCloud({getData:()=>clone(data),apply:applyCloudData,normalize:value=>C.normalizeBuses(value),guest:()=>clone(guestSnapshot),guestDirty:()=>guestWasDirty,confirm:confirmAction,download,notify:toast,isEditing:()=>!!document.querySelector('#course-dialog[open],#note-dialog[open],#service-dialog[open],#manage-dialog[open]')});
+}catch(error){$('#storage-banner').hidden=false;$('#storage-banner').textContent='同步组件未能启动，当前仅本机保存：'+error.message;}
+// Prevent edits while changing accounts / performing the initial cloud read.
+const writes=new Set(['add-course','add-course-week','add-course-slot','edit-record','edit-group','add-course-from-manage','delete-editing','add-note','edit-note','delete-note','add-service','edit-service','delete-service','import-json','reset','use-published','keep-local']);
+document.addEventListener('click',event=>{
+ if(cloud?.isLocked()&&(writes.has(event.target.closest('[data-action]')?.dataset.action)||event.target.matches('[data-note-check],#bus-holiday'))){event.preventDefault();event.stopImmediatePropagation();toast('请先完成云端读取，或在“账号与同步”中重试。',true);}
+},true);
+document.addEventListener('beforeinput',event=>{if(cloud?.isLocked()&&event.target.dataset.progress){event.preventDefault();toast('正在读取云端，请稍后输入。',true);}},true);
+document.addEventListener('focusout',()=>{if(cloudRenderPending)setTimeout(()=>{if(!document.activeElement?.dataset?.progress){cloudRenderPending=false;refreshAll();}},0);});
+function preparePDF(){
+ const embedded=$('#shuttle-pdf-data');if(!embedded)return;
+ try{const raw=atob(JSON.parse(embedded.textContent).base64),bytes=Uint8Array.from(raw,c=>c.charCodeAt(0));$('.bus-rules a').href=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));}catch{}
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',preparePDF,{once:true});else preparePDF();
+// Exposed narrow interface for deterministic regression tests / local backups only.
+window.TeachingApp={getData:()=>clone(data),core:C};
 })();
