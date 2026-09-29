@@ -48,3 +48,11 @@
 .today-reminder-close{position:absolute;right:11px;top:10px;width:30px;height:30px;border:0;border-radius:9px;background:transparent;color:#9a86aa;font-size:22px;line-height:1;cursor:pointer}.today-reminder-close:hover{background:#f2eafb;color:#745b8a}
 @media(max-width:550px){.today-reminders{margin-bottom:14px}.today-reminder-card{padding:13px 42px 13px 13px;gap:10px}.today-reminder-mark{width:34px;height:34px;border-radius:10px}.today-reminder-content h2{font-size:14px}.today-reminder-content p{font-size:10px}.today-reminder-close{right:8px;top:8px}}
 @media print{.today-reminders{display:none!important}}
+
+/* Reminder actions: complete updates the Important Items record; dismiss only hides the alert. */
+.today-reminder-actions{display:flex;align-items:center;gap:8px;margin-top:10px}
+.today-reminder-actions button{min-height:31px;border-radius:8px;padding:6px 11px;font:inherit;font-size:10px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:5px}
+.today-reminder-actions .icon{width:13px;height:13px}
+.today-reminder-done{border:1px solid #87b694;background:#f1f8f3;color:#4f805d;font-weight:600}.today-reminder-done:hover{background:#e7f3ea;border-color:#6aa37a}
+.today-reminder-dismiss{border:1px solid #e3c1c1;background:#fff;color:#b25454}.today-reminder-dismiss:hover{background:#fff1f1;border-color:#d99898}
+@media(max-width:550px){.today-reminder-actions{gap:7px;margin-top:9px}.today-reminder-actions button{min-height:30px;padding:6px 10px;font-size:10px}}
