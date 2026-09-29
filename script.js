@@ -90,12 +90,16 @@
       positions.add(key(r));recIds.add(r.id);
     });
     if(!Array.isArray(data.notes)||!Array.isArray(data.buses)||!Array.isArray(data.services)) throw new Error('备份缺少事项或服务数据。');
+    if(data.reminderDismissed!==undefined&&(Array.isArray(data.reminderDismissed)||data.reminderDismissed===null||typeof data.reminderDismissed!=='object')) throw new Error('提醒状态数据无效。');
     if(data.notes.length>2000||data.buses.length>1000||data.services.length>1000) throw new Error('备份记录过多。');
     const noteIds=new Set();
     data.notes.forEach(n=>{
       if(!n||!str(n.id,120)||noteIds.has(n.id)||!str(n.title,120)||!n.title.trim()||!str(n.description,3000)||!str(n.date,10)||(n.date!==''&&!Number.isFinite(dayValue(n.date)))||typeof n.done!=='boolean') throw new Error('重要事项数据无效。');
       noteIds.add(n.id);
     });
+    if(data.reminderDismissed!==undefined){
+      for(const [k,v] of Object.entries(data.reminderDismissed))if(typeof k!=='string'||k.length>260||v!==true)throw new Error('提醒状态数据无效。');
+    }
     const serviceIds=new Set();
     data.services.forEach(s=>{
       if(!s||!str(s.id,120)||serviceIds.has(s.id)||!str(s.title,120)||!s.title.trim()||!str(s.description,3000)||!str(s.url,1500)) throw new Error('服务数据无效。');
@@ -112,6 +116,9 @@
     const official=globalThis.TEACHING_BUSES;
     if(official){data.buses=JSON.parse(JSON.stringify(official.rows));data.busVersion=official.version;}
     if(!data.busHolidays)data.busHolidays={};
+    if(!data.reminderDismissed)data.reminderDismissed={};
+    const reminderKeys=new Set((data.notes||[]).filter(n=>n&&typeof n.id==='string').map(n=>n.id+'|'+(n.date||'')));
+    for(const key of Object.keys(data.reminderDismissed))if(!reminderKeys.has(key))delete data.reminderDismissed[key];
     if(!data.busHolidays||Array.isArray(data.busHolidays)||typeof data.busHolidays!=='object')throw new Error('节假日标记格式无效。');
     for(const [date,value] of Object.entries(data.busHolidays))if(!Number.isFinite(dayValue(date))||typeof value!=='boolean')throw new Error('节假日标记无效。');
     // The publication revision is metadata, not a user's editable field.
@@ -350,7 +357,7 @@ function renderBoards(){
  fillIcons();
 }
 function refreshSchedule(){renderClock();renderWeekControls();renderStats();renderBoards();}
-function refreshAll(){renderCourseMeta();refreshSchedule();renderNotesCount();if(currentTab==='notes')renderNotes();if(currentTab==='services')renderServices();$('#update-banner').hidden=!hasNewRelease;fillIcons();}
+function refreshAll(){renderCourseMeta();refreshSchedule();renderTodayReminders();renderNotesCount();if(currentTab==='notes')renderNotes();if(currentTab==='services')renderServices();$('#update-banner').hidden=!hasNewRelease;fillIcons();}
 function changeWeeks(weeks){selectedWeeks=new Set(weeks.filter(w=>w>=1&&w<=20));if(!selectedWeeks.size)selectedWeeks.add(C.defaultWeek(today));refreshSchedule();}
 function openCourse(rows=[],defaults={}){
  editingIds=rows.map(r=>r.id);editingBulk=rows.length>1;
@@ -405,6 +412,24 @@ async function deleteEditing(){
  if(!await confirmAction(`将删除正在编辑的 ${count} 节课程安排及其进度。其他周次或课程不受影响。建议先导出备份。`,'删除课程安排','确认删除'))return;
  const excluded=new Set(editingIds);data.records=data.records.filter(r=>!excluded.has(r.id));save();$('#course-dialog').close();refreshAll();notifySaved(`已删除 ${count} 节安排。`);
 }
+function reminderKey(note){return note.id+'|'+(note.date||'');}
+function renderTodayReminders(){
+ const box=$('#today-reminders');if(!box)return;
+ const due=data.notes.filter(n=>!n.done&&n.date===today&&!data.reminderDismissed?.[reminderKey(n)]);
+ box.hidden=!due.length;
+ box.innerHTML=due.length?due.map(n=>`<article class="today-reminder-card">
+   <div class="today-reminder-mark">${icon('checklist')}</div>
+   <div class="today-reminder-content"><div class="today-reminder-label">今日重要提醒</div><h2>${esc(n.title)}</h2>${n.description?`<p>${esc(n.description)}</p>`:''}<small>${esc(today.replaceAll('-','.'))}</small></div>
+   <button class="today-reminder-close" data-action="dismiss-reminder" data-note="${esc(n.id)}" aria-label="关闭提醒：${esc(n.title)}" title="关闭后不再提醒">×</button>
+  </article>`).join(''):'';
+ fillIcons();
+}
+function dismissReminder(noteId){
+ const n=data.notes.find(n=>n.id===noteId);if(!n||n.date!==today)return;
+ if(!data.reminderDismissed)data.reminderDismissed={};
+ data.reminderDismissed[reminderKey(n)]=true;
+ save();renderTodayReminders();toast('已关闭提醒；这项事项不会再次弹出。');
+}
 function renderNotesCount(){const n=data.notes.filter(n=>!n.done).length;$('#nav-note-count').textContent=n;$('#nav-note-count').hidden=!n;}
 function renderNotes(){
  const open=data.notes.filter(n=>!n.done).length;
@@ -426,11 +451,11 @@ function submitNote(e){
  const old=data.notes.find(n=>n.id===editingNoteId);
  const note={id:old?.id||uid('note'),title,date:$('#note-input-date').value,description:$('#note-input-description').value,done:old?.done||false};
  if(old)data.notes=data.notes.map(n=>n.id===old.id?note:n);else data.notes.push(note);
- save();$('#note-dialog').close();renderNotes();notifySaved('事项已保存。');
+ save();$('#note-dialog').close();renderNotes();renderTodayReminders();notifySaved('事项已保存。');
 }
 async function deleteNote(){
  if(!editingNoteId)return;if(!await confirmAction('将删除这条重要事项。','删除事项','确认删除'))return;
- data.notes=data.notes.filter(n=>n.id!==editingNoteId);save();$('#note-dialog').close();renderNotes();notifySaved('事项已删除。');
+ data.notes=data.notes.filter(n=>n.id!==editingNoteId);save();$('#note-dialog').close();renderNotes();renderTodayReminders();notifySaved('事项已删除。');
 }
 function academicWeekRange(start,week){const from=C.addDays(start,(week-1)*7);return {start:from,end:C.addDays(from,6)};}
 function academicWeekFor(start,weeks,iso=today){const d=C.dayValue(iso),s=C.dayValue(start);if(!Number.isFinite(d)||d<s||d>s+weeks*7-1)return null;return Math.floor((d-s)/7)+1;}
@@ -520,7 +545,7 @@ async function exportHTML(){
  const doc=document.documentElement.cloneNode(true);
  // Remove rendered state and dialogs. The scripts reconstruct the page from the
  // new seed on each visit, independently of today's selected weeks or tab.
- const dynamicIds=['stats','view-weeks','selected-weeks','course-legend','weekboards','manage-list','notes-list','bus-body','service-list','calendar-events','calendar-weeks','calendar-class-times','calendar-exam-times','edit-weeks','edit-slots'];
+ const dynamicIds=['stats','view-weeks','selected-weeks','course-legend','weekboards','today-reminders','manage-list','notes-list','bus-body','service-list','calendar-events','calendar-weeks','calendar-class-times','calendar-exam-times','edit-weeks','edit-slots'];
  dynamicIds.forEach(id=>{const el=doc.querySelector('#'+id);if(el)el.innerHTML='';});
  doc.querySelector('#seed-data').textContent=JSON.stringify(newSeed).replace(/</g,'\\u003c');
  doc.querySelectorAll('dialog').forEach(d=>d.removeAttribute('open'));
@@ -571,7 +596,7 @@ function checkDate(){
  const next=C.localISO();if(next===today)return;
  const oldWeek=C.currentWeek(today);today=next;
  if(C.currentWeek(today)!==oldWeek)selectedWeeks=new Set([C.defaultWeek(today)]);
- refreshSchedule();if(currentTab==='notes')renderNotes();if(currentTab==='services'){if($('#bus-mode').value==='date')$('#bus-date').value=today;renderServices();}
+ refreshSchedule();renderTodayReminders();if(currentTab==='notes')renderNotes();if(currentTab==='services'){if($('#bus-mode').value==='date')$('#bus-date').value=today;renderServices();}
  // Keep editor selections intact while updating only genuine current badges.
  if($('#course-dialog').open){const chosen=new Set(checkedValues('edit-week',true));$('#edit-weeks').innerHTML=weekOptions(chosen,'edit-week');}
  if($('#calendar-dialog').open){$('#calendar-dialog').close();showCalendar();}
@@ -609,6 +634,7 @@ document.addEventListener('click',async event=>{
  case 'edit-slot-evening':setEditorChecks('edit-slot',v=>C.slotIndex(v)>=10);break;
  case 'edit-slot-clear':setEditorChecks('edit-slot',()=>false);break;
  case 'add-note':openNote();break;
+ case 'dismiss-reminder':dismissReminder(b.dataset.note);break;
  case 'edit-note':openNote(b.dataset.note);break;
  case 'delete-note':await deleteNote();break;
  case 'filter-notes':noteFilter=b.dataset.filter;renderNotes();break;
@@ -635,7 +661,7 @@ document.addEventListener('change',event=>{
  }else if(el.id==='course-filter'){courseFilter=el.value;refreshSchedule();}
  else if(el.id==='show-empty'){showEmpty=el.checked;refreshSchedule();}
  else if(el.name==='edit-week'||el.name==='edit-slot')updateTargetCount();
- else if(el.dataset.noteCheck){const n=data.notes.find(n=>n.id===el.dataset.noteCheck);if(n){n.done=el.checked;save();renderNotes();}}
+ else if(el.dataset.noteCheck){const n=data.notes.find(n=>n.id===el.dataset.noteCheck);if(n){n.done=el.checked;save();renderNotes();renderTodayReminders();}}
  else if(['bus-filter','bus-mode','bus-date'].includes(el.id))renderServices();
  else if(el.id==='bus-holiday'){if(el.checked)data.busHolidays[$('#bus-date').value]=true;else delete data.busHolidays[$('#bus-date').value];save();renderServices();}
  else if(el.id==='import-file')importJSON(el.files[0]);
@@ -656,7 +682,7 @@ document.addEventListener('pointerdown',event=>{
  if($('#week-picker').open&&!event.target.closest('#week-picker')&&!event.target.closest('#confirm-dialog'))$('#week-picker').open=false;
 });
 window.addEventListener('focus',checkDate);document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkDate();});
-window.addEventListener('pageshow',event=>{if(event.persisted){today=C.localISO();selectedWeeks=new Set([C.defaultWeek(today)]);refreshSchedule();}});
+window.addEventListener('pageshow',event=>{if(event.persisted){today=C.localISO();selectedWeeks=new Set([C.defaultWeek(today)]);refreshSchedule();renderTodayReminders();}});
 window.addEventListener('beforeunload',event=>{if(cacheWriteFailed){event.preventDefault();event.returnValue='';}});
 setInterval(checkDate,30000);
 // Always start with the true current week (or the nearest semester boundary),
@@ -675,7 +701,7 @@ try{
  cloud=new window.TeachingCloud({getData:()=>clone(data),apply:applyCloudData,normalize:value=>C.normalizeBuses(value),guest:()=>clone(guestSnapshot),guestDirty:()=>guestWasDirty,confirm:confirmAction,download,notify:toast,isEditing:()=>!!document.querySelector('#course-dialog[open],#note-dialog[open],#service-dialog[open],#manage-dialog[open]')});
 }catch(error){$('#storage-banner').hidden=false;$('#storage-banner').textContent='同步组件未能启动，当前仅本机保存：'+error.message;}
 // Prevent edits while changing accounts / performing the initial cloud read.
-const writes=new Set(['add-course','add-course-week','add-course-slot','edit-record','edit-group','add-course-from-manage','delete-editing','add-note','edit-note','delete-note','add-service','edit-service','delete-service','import-json','reset','use-published','keep-local']);
+const writes=new Set(['add-course','add-course-week','add-course-slot','edit-record','edit-group','add-course-from-manage','delete-editing','add-note','edit-note','delete-note','dismiss-reminder','add-service','edit-service','delete-service','import-json','reset','use-published','keep-local']);
 document.addEventListener('click',event=>{
  if(cloud?.isLocked()&&(writes.has(event.target.closest('[data-action]')?.dataset.action)||event.target.matches('[data-note-check],#bus-holiday'))){event.preventDefault();event.stopImmediatePropagation();toast('请先完成云端读取，或在“账号与同步”中重试。',true);}
 },true);
