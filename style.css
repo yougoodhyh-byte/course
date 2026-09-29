@@ -42,7 +42,7 @@
 
 /* One-time important-item reminder on teaching dashboard */
 .today-reminders{display:grid;gap:10px;margin:0 0 18px}.today-reminders[hidden]{display:none!important}
-.today-reminder-card{position:relative;display:flex;align-items:flex-start;gap:13px;padding:15px 46px 15px 16px;border:3px solid #e25353;border-radius:13px;background:linear-gradient(135deg,#fffafa 0%,#fff 72%);box-shadow:0 5px 18px rgba(180,64,64,.07)}
+.today-reminder-card{position:relative;display:flex;align-items:flex-start;gap:13px;padding:15px 46px 15px 16px;border:2px dashed #e25353;border-radius:13px;background:linear-gradient(135deg,#fffafa 0%,#fff 72%);box-shadow:0 5px 18px rgba(180,64,64,.07)}
 .today-reminder-mark{width:38px;height:38px;display:grid;place-items:center;flex:0 0 auto;border-radius:11px;background:#eee4fa;color:var(--accent)}.today-reminder-mark .icon{width:19px;height:19px}
 .today-reminder-content{min-width:0}.today-reminder-label{font-size:9px;color:#a082b3;letter-spacing:.08em;margin:1px 0 3px}.today-reminder-content h2{font-size:15px;line-height:1.45;color:#5f4c70;margin:0 0 4px;font-weight:600}.today-reminder-content p{font-size:11px;line-height:1.75;color:#897397;margin:3px 0 5px;white-space:pre-wrap;overflow-wrap:anywhere}.today-reminder-content small{font-size:9px;color:#ad98b9;font-variant-numeric:tabular-nums}
 .today-reminder-close{position:absolute;right:11px;top:10px;width:30px;height:30px;border:0;border-radius:9px;background:transparent;color:#9a86aa;font-size:22px;line-height:1;cursor:pointer}.today-reminder-close:hover{background:#f2eafb;color:#745b8a}
@@ -53,7 +53,7 @@
 .today-reminder-content{flex:1}
 .today-reminder-actions{display:flex;align-items:center;margin-top:10px}
 .today-reminder-done{border:0;background:transparent;color:#596b86;padding:4px 2px;font:inherit;font-size:11px;cursor:pointer;display:inline-flex;align-items:center;gap:7px}
-.today-reminder-done-box{width:15px;height:15px;border-radius:3px;background:#3478d4;border:1px solid #3478d4;box-shadow:inset 0 0 0 1px rgba(255,255,255,.12);flex:0 0 auto}
-.today-reminder-done:hover{color:#2e5e9f}.today-reminder-done:hover .today-reminder-done-box{background:#2d6fc8;border-color:#2d6fc8}
+.today-reminder-done-box{width:15px;height:15px;border-radius:3px;background:transparent;border:2px solid #3478d4;box-shadow:none;flex:0 0 auto}
+.today-reminder-done:hover{color:#2e5e9f}.today-reminder-done:hover .today-reminder-done-box{background:transparent;border-color:#2d6fc8}
 .today-reminder-close{position:absolute;right:10px;top:9px;width:31px;height:31px;border:0;border-radius:9px;background:transparent;color:#b04f4f;font-size:23px;line-height:1;cursor:pointer;display:grid;place-items:center}.today-reminder-close:hover{background:#fff0f0;color:#963d3d}
 @media(max-width:550px){.today-reminder-actions{margin-top:9px}.today-reminder-done{font-size:11px}.today-reminder-done-box{width:15px;height:15px}.today-reminder-close{right:7px;top:7px}}
