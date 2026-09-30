@@ -1,0 +1,14 @@
+<view class="login-page">
+  <view class="login-card">
+    <view class="brand">教学工作台</view>
+    <view class="title">登录后查看</view>
+    <view class="desc">课程、事项、校车、校历和考勤只对指定账号开放。</view>
+    <text class="label">账号</text>
+    <input class="input" value="{{email}}" disabled />
+    <text class="label">密码</text>
+    <input class="input" password value="{{password}}" bindinput="onPassword" placeholder="请输入密码" />
+    <label class="remember"><switch checked="{{remember}}" bindchange="onRemember" color="#6956d9"/><text>保持登录</text></label>
+    <button class="btn btn-primary login-btn" loading="{{loading}}" bindtap="submit">登录</button>
+    <view class="error" wx:if="{{error}}">{{error}}</view>
+  </view>
+</view>
