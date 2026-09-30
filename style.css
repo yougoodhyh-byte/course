@@ -118,3 +118,9 @@ body.auth-locked{overflow:hidden;background:#f7f3fa}.access-gate{position:fixed;
  .attendance-toolbar-actions .attendance-search{grid-column:1/-1}
  .attendance-toolbar-actions .button{width:100%}
 }
+
+/* Attendance course actions at table bottom */
+.attendance-bottom-actions{display:flex;justify-content:flex-end;align-items:center;gap:9px;margin-top:13px;padding-top:12px;border-top:1px solid #eee6f2}
+.attendance-bottom-actions .button{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:34px}
+.attendance-bottom-actions .icon{width:14px;height:14px}
+@media(max-width:650px){.attendance-bottom-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}.attendance-bottom-actions .button{width:100%}.attendance-bottom-actions .button:only-child{grid-column:1/-1}}
