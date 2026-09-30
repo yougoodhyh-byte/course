@@ -92,11 +92,6 @@ body.auth-locked{overflow:hidden;background:#f7f3fa}.access-gate{position:fixed;
 .attendance-status.state-present{background:#f2fbf5;border-color:#79c995;color:#16834b;font-weight:700}
 .attendance-status.state-absent{background:#fff4f4;border-color:#e6a6ad;color:#d22638;font-weight:700}
 .attendance-status.state-neutral{background:#fff;color:#111;border-color:#ddd1e4;font-weight:500}
-.attendance-table th.attendance-today-col{background:#fff7f7!important;color:#c82432!important;box-shadow:inset 2px 0 #df3342,inset -2px 0 #df3342,inset 0 2px #df3342}
-.attendance-table td.attendance-today-col{background:#fffafa;box-shadow:inset 2px 0 #df3342,inset -2px 0 #df3342}
-.attendance-table tbody tr:last-child td.attendance-today-col{box-shadow:inset 2px 0 #df3342,inset -2px 0 #df3342,inset 0 -2px #df3342}
-.attendance-course[data-has-today="1"]>summary{background:#fffafa}
-.attendance-course[data-has-today="1"]>summary strong{color:#c82432}
 @media(max-width:650px){
  .attendance-toolbar-actions{width:100%;display:grid;grid-template-columns:1fr auto}
  .attendance-search{min-width:0}
@@ -124,3 +119,9 @@ body.auth-locked{overflow:hidden;background:#f7f3fa}.access-gate{position:fixed;
 .attendance-bottom-actions .button{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:34px}
 .attendance-bottom-actions .icon{width:14px;height:14px}
 @media(max-width:650px){.attendance-bottom-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}.attendance-bottom-actions .button{width:100%}.attendance-bottom-actions .button:only-child{grid-column:1/-1}}
+
+/* Attendance auto-location: nearest class scrolls into view; red border appears only during actual class time. */
+.attendance-table th.attendance-active-col{background:#fff7f7!important;color:#c82432!important;box-shadow:inset 2px 0 #df3342,inset -2px 0 #df3342,inset 0 2px #df3342}
+.attendance-table td.attendance-active-col{background:#fffafa;box-shadow:inset 2px 0 #df3342,inset -2px 0 #df3342}
+.attendance-table tbody tr:last-child td.attendance-active-col{box-shadow:inset 2px 0 #df3342,inset -2px 0 #df3342,inset 0 -2px #df3342}
+.attendance-course.is-class-active>summary{background:#fffafa}.attendance-course.is-class-active>summary strong{color:#c82432}
