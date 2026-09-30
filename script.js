@@ -547,23 +547,23 @@ function renderAttendance(){
   const query=attendanceSearchQuery(course.id),hasToday=dates.includes(today);
   let table='';
   if(students.length){
-   let head='<div class="attendance-table-scroll"><table class="attendance-table"><thead><tr><th class="attendance-name">姓名</th><th class="attendance-id">学号</th>';
+   let head='<div class="attendance-table-scroll"><table class="attendance-table"><thead><tr><th class="attendance-name">姓名</th>';
    for(const date of dates){
     const w=attendanceWeek(date),todayClass=date===today?' attendance-today-col':'';
     head+='<th class="attendance-date'+todayClass+'" data-attendance-date="'+esc(date)+'"><span>'+esc(date.slice(5).replace('-','/'))+'</span><small>'+(w?'第'+w+'周':'')+(date===today?' · 今天':'')+'</small></th>';
    }
-   head+='</tr></thead><tbody>';
+   head+='<th class="attendance-id">学号</th></tr></thead><tbody>';
    let body='';
    for(const st of students){
     const visible=attendanceStudentMatches(st,query);
     body+='<tr data-attendance-student-row data-name="'+esc(String(st.name||'').toLowerCase())+'" data-student-no="'+esc(String(st.studentNo||'').toLowerCase())+'"'+(visible?'':' hidden')+'>';
     body+='<td class="attendance-name"><span class="attendance-student-name">'+esc(st.name)+'</span><button class="attendance-student-delete" data-action="attendance-delete-student" data-course="'+esc(course.id)+'" data-student="'+esc(st.id)+'" aria-label="删除学生 '+esc(st.name)+'" title="删除学生">×</button></td>';
-    body+='<td class="attendance-id">'+esc(st.studentNo)+'</td>';
     for(const date of dates){
      const value=attendanceValue(sheet,st.id,date),todayClass=date===today?' attendance-today-col':'';
      body+='<td class="'+todayClass.trim()+'" data-attendance-date="'+esc(date)+'"><select class="attendance-status '+attendanceStatusClass(value)+'" data-attendance-course="'+esc(course.id)+'" data-student="'+esc(st.id)+'" data-date="'+esc(date)+'" aria-label="'+esc(st.name)+' '+esc(date)+'考勤">';
      body+='<option value="-"'+(value==='-'?' selected':'')+'>-</option><option value="1"'+(value==='1'?' selected':'')+'>1</option><option value="-1"'+(value==='-1'?' selected':'')+'>-1</option></select></td>';
     }
+    body+='<td class="attendance-id">'+esc(st.studentNo)+'</td>';
     body+='</tr>';
    }
    table=head+body+'</tbody></table></div>';
