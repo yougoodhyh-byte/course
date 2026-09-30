@@ -125,3 +125,7 @@ body.auth-locked{overflow:hidden;background:#f7f3fa}.access-gate{position:fixed;
 .attendance-table td.attendance-active-col{background:#fffafa;box-shadow:inset 2px 0 #df3342,inset -2px 0 #df3342}
 .attendance-table tbody tr:last-child td.attendance-active-col{box-shadow:inset 2px 0 #df3342,inset -2px 0 #df3342,inset 0 -2px #df3342}
 .attendance-course.is-class-active>summary{background:#fffafa}.attendance-course.is-class-active>summary strong{color:#c82432}
+
+.attendance-export-all-row{display:flex;justify-content:flex-end;align-items:center;margin-top:14px;padding-top:13px;border-top:1px solid #eee6f2}
+.attendance-export-all-row .attendance-export-all{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:35px}
+@media(max-width:650px){.attendance-export-all-row .attendance-export-all{width:100%}}
