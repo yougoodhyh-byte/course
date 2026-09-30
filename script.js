@@ -570,10 +570,55 @@ function renderAttendance(){
   }else table='<div class="attendance-empty">上传 Excel 后自动生成学生名单与考勤日期。</div>';
   const openAttr=openIds.has(course.id)?' open':'';
   html+='<details class="attendance-course" data-attendance-course="'+esc(course.id)+'" data-has-today="'+(hasToday?'1':'0')+'"'+openAttr+'><summary><span><strong>'+esc(display)+'</strong><small>'+fileInfo+(hasToday?' · 今天有课':'')+'</small></span><span class="service-fold-chevron">'+icon('chevron-down')+'</span></summary><div class="attendance-course-body">';
-  html+='<div class="attendance-toolbar"><div><strong>'+esc(display)+'</strong><small>'+dates.length+' 个上课日期 · “-”未登记，“1”到勤，“-1”缺勤</small></div><div class="attendance-toolbar-actions">'+(students.length?'<label class="attendance-search"><input type="search" value="'+esc(attendanceSearchQueries.get(course.id)||'')+'" placeholder="检索姓名或学号" data-attendance-search="'+esc(course.id)+'" autocomplete="off" aria-label="'+esc(display)+'检索学生"></label>':'')+'<button class="button small" data-action="attendance-upload" data-course="'+esc(course.id)+'">'+(students.length?'替换 Excel':'上传 Excel')+'</button></div></div>';
+  html+='<div class="attendance-toolbar"><div><strong>'+esc(display)+'</strong><small>'+dates.length+' 个上课日期 · “-”未登记，“1”到勤，“-1”缺勤</small></div><div class="attendance-toolbar-actions">'+(students.length?'<label class="attendance-search"><input type="search" value="'+esc(attendanceSearchQueries.get(course.id)||'')+'" placeholder="检索姓名或学号" data-attendance-search="'+esc(course.id)+'" autocomplete="off" aria-label="'+esc(display)+'检索学生"></label><button class="button small" data-action="attendance-export-course" data-course="'+esc(course.id)+'">'+icon('download')+'导出 Excel</button>':'')+'<button class="button small" data-action="attendance-upload" data-course="'+esc(course.id)+'">'+(students.length?'替换 Excel':'上传 Excel')+'</button></div></div>';
   html+=table+'</div></details>';
  }
  host.innerHTML=html;fillIcons();wireAttendanceAutoLocate(host);
+}
+function safeAttendanceFileName(value){
+ return String(value||'考勤').replace(/[\\/:*?"<>|]+/g,'_').replace(/\s+/g,' ').trim().slice(0,80)||'考勤';
+}
+function safeAttendanceSheetName(value,used){
+ const base=String(value||'考勤').replace(/[\\/?*\[\]:]+/g,'_').trim().slice(0,31)||'考勤';
+ let name=base,n=2;while(used.has(name)){const suffix='_'+n++;name=(base.slice(0,31-suffix.length)+suffix);}used.add(name);return name;
+}
+function attendanceExportMatrix(courseId){
+ const course=data.courses.find(c=>c.id===courseId),sheet=attendanceSheet(courseId),dates=attendanceDates(courseId);
+ if(!course||!sheet.students?.length)return null;
+ const header=['姓名',...dates,'学号'];
+ const rows=sheet.students.map(st=>[st.name,...dates.map(date=>{const v=attendanceValue(sheet,st.id,date);return v==='1'?1:v==='-1'?-1:'-';}),String(st.studentNo)]);
+ return {course,sheet,dates,matrix:[header,...rows]};
+}
+function buildAttendanceWorkbook(items){
+ if(!window.XLSX)throw new Error('Excel 导出组件未加载，请刷新页面后重试。');
+ const wb=XLSX.utils.book_new(),used=new Set();
+ for(const item of items){
+  const ws=XLSX.utils.aoa_to_sheet(item.matrix);
+  ws['!cols']=[{wch:14},...item.dates.map(()=>({wch:12})),{wch:18}];
+  if(item.matrix.length>1&&item.matrix[0].length>1){
+   const last=XLSX.utils.encode_cell({r:item.matrix.length-1,c:item.matrix[0].length-1});
+   ws['!autofilter']={ref:'A1:'+last};
+  }
+  XLSX.utils.book_append_sheet(wb,ws,safeAttendanceSheetName(item.course.name,used));
+ }
+ return wb;
+}
+function exportAttendanceCourse(courseId){
+ try{
+  const item=attendanceExportMatrix(courseId);if(!item){toast('这门课程还没有可导出的学生考勤数据。',true);return;}
+  const wb=buildAttendanceWorkbook([item]);
+  XLSX.writeFile(wb,safeAttendanceFileName(item.course.name)+'_考勤_'+today+'.xlsx',{compression:true});
+  toast('考勤 Excel 已导出。');
+ }catch(error){toast('导出失败：'+error.message,true);}
+}
+function exportAttendanceAll(){
+ try{
+  const items=attendanceRequiredCourses().map(x=>attendanceExportMatrix(x.course.id)).filter(Boolean);
+  if(!items.length){toast('目前还没有可导出的考勤数据。',true);return;}
+  const wb=buildAttendanceWorkbook(items);
+  XLSX.writeFile(wb,'考勤汇总_'+today+'.xlsx',{compression:true});
+  toast('全部考勤已导出为 Excel。');
+ }catch(error){toast('导出失败：'+error.message,true);}
 }
 function normalizeExcelHeader(value){return String(value??'').trim().replace(/[\s　_\-:：()（）]/g,'').toLowerCase();}
 function findExcelHeader(row,type){
@@ -754,6 +799,8 @@ document.addEventListener('click',async event=>{
  case 'show-calendar':showCalendar();break;
  case 'calendar-term':calendarTerm=b.dataset.term==='spring'?'spring':'fall';renderCalendar();break;
  case 'attendance-upload':attendanceUploadCourseId=b.dataset.course;$('#attendance-file').click();break;
+ case 'attendance-export-course':exportAttendanceCourse(b.dataset.course);break;
+ case 'attendance-export-all':exportAttendanceAll();break;
  case 'attendance-delete-student':await deleteAttendanceStudent(b.dataset.course,b.dataset.student);break;
  case 'data':$('#data-dialog').showModal();break;
  case 'export-json':exportJSON();break;
