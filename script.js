@@ -560,26 +560,18 @@ function updateAttendanceTimingUI(){
 function wireAttendanceAutoLocate(host){
  updateAttendanceTimingUI();
  host.querySelectorAll('.attendance-course').forEach(details=>{
-  details.addEventListener('toggle',()=>{if(details.open){updateAttendanceTimingUI();requestAnimationFrame(()=>scrollAttendanceToNearest(details));}});
+  details.addEventListener('toggle',()=>{
+   if(!details.open)return;
+   updateAttendanceTimingUI();
+   requestAnimationFrame(()=>scrollAttendanceToNearest(details));
+  });
  });
  const fold=$('#attendance-fold');
  if(fold&&!fold.dataset.attendanceLocateWired){
   fold.dataset.attendanceLocateWired='1';
   fold.addEventListener('toggle',()=>{
-   if(!fold.open)return;
-   updateAttendanceTimingUI();
-   const courses=[...host.querySelectorAll('.attendance-course')].filter(d=>Number.isFinite(Number(d.dataset.nearestDistance)));
-   courses.sort((a,b)=>Number(a.dataset.nearestDistance)-Number(b.dataset.nearestDistance));
-   const nearestCourse=courses[0];
-   if(nearestCourse){nearestCourse.open=true;requestAnimationFrame(()=>scrollAttendanceToNearest(nearestCourse));}
+   if(fold.open)updateAttendanceTimingUI();
   });
- }
- if(fold?.open){
-  updateAttendanceTimingUI();
-  const courses=[...host.querySelectorAll('.attendance-course')].filter(d=>Number.isFinite(Number(d.dataset.nearestDistance)));
-  courses.sort((a,b)=>Number(a.dataset.nearestDistance)-Number(b.dataset.nearestDistance));
-  const nearestCourse=courses[0];
-  if(nearestCourse){nearestCourse.open=true;requestAnimationFrame(()=>scrollAttendanceToNearest(nearestCourse,'auto'));}
  }
 }
 function renderAttendance(){
