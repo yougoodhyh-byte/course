@@ -7,7 +7,7 @@
 <meta content="#6956d9" name="theme-color"/>
 <meta content="2026—2027学年教学服务：多周课表、课程进度、重要事项、校历与校车时刻。" name="description"/>
 <title>教学服务 · 2026—2027 第一学期</title>
-<link href="./style.css?v=20260930-1" rel="stylesheet"/>
+<link href="./style.css?v=20260930-2" rel="stylesheet"/>
 </head>
 <body class="auth-locked">
 <section class="access-gate" id="access-gate"><div class="access-card"><div class="access-brand"><span class="brand-mark" data-icon="book"></span><strong>教学工作台</strong></div><h1>登录后查看</h1><p>教学工作台内容仅对指定账号开放。</p><form id="access-login-form"><label>账号<input id="access-email" type="email" value="1661531189@qq.com" readonly autocomplete="username"></label><label>密码<input id="access-password" type="password" required autocomplete="current-password" placeholder="请输入密码"></label><label class="access-remember"><input id="access-remember" type="checkbox">保持登录（仅私人设备）</label><button class="button primary access-login-button" type="submit">登录</button></form><p class="access-status" id="access-status">请使用指定账号登录。</p><p class="access-error" id="access-error" hidden></p></div></section>
@@ -53,19 +53,40 @@
 <div id="notes-list"></div>
 </section>
 <section class="page-section" hidden="" id="section-services">
-<div class="page-heading"><div><h1>其他服务</h1></div><button class="button" data-action="add-service"><span data-icon="plus"></span>添加服务</button></div>
+<div class="page-heading"><div><h1>其他服务</h1></div></div>
+
+<details class="service-fold" id="calendar-fold">
+<summary><span class="service-fold-icon" data-icon="calendar"></span><span class="service-fold-title"><strong>校历</strong><small id="calendar-current-summary"></small></span><span class="service-fold-extra" id="calendar-fold-meta"></span><span class="service-fold-chevron" data-icon="chevron-down"></span></summary>
+<div class="service-fold-body">
 <section class="panel calendar-service-card">
-<div class="calendar-service-main"><span class="calendar-service-icon" data-icon="calendar"></span><div><span class="calendar-service-kicker">校历</span><h2 id="calendar-service-title">学年校历</h2><p id="calendar-current-summary"></p></div></div>
+<div class="calendar-service-main"><div><span class="calendar-service-kicker">学年校历</span><h2 id="calendar-service-title">学年校历</h2></div></div>
 <div class="calendar-service-meta"><span id="calendar-fall-meta"></span><span id="calendar-spring-meta"></span><button class="button primary small" data-action="show-calendar">查看完整校历</button></div>
 </section>
-<div class="service-heading"><div><h2>校车时刻表</h2><p id="bus-route-summary"></p></div></div>
+</div>
+</details>
+
+<details class="service-fold" id="bus-fold">
+<summary><span class="service-fold-icon" data-icon="bus"></span><span class="service-fold-title"><strong>校车时刻表</strong><small id="bus-route-summary"></small></span><span class="service-fold-extra" id="bus-fold-meta"></span><span class="service-fold-chevron" data-icon="chevron-down"></span></summary>
+<div class="service-fold-body">
 <section class="panel bus-panel">
 <div class="panel-heading"><div><h2><span id="bus-day-label">按日期查询</span> <span class="tag subtle" id="bus-count"></span></h2><p id="bus-rule-summary"></p></div><div class="bus-controls"><label>查看<select id="bus-mode"><option value="date">按日期</option><option value="weekday">周一至周五全表</option><option value="weekend">周六周日全表</option></select></label><label id="bus-date-label">日期<input id="bus-date" type="date"/></label><label>方向<select id="bus-filter"><option value="all">全部方向</option><option value="out">去程</option><option value="back">返程</option></select></label></div></div>
-<div class="bus-holiday-control" hidden="" id="bus-holiday-control"><label class="checkbox-line"><input id="bus-holiday" type="checkbox"/>该日为节假日，停开周三增班</label><small>未自动导入节假日；请按学校通知核对。</small></div>
+<div class="bus-holiday-control" hidden="" id="bus-holiday-control"><label class="checkbox-line"><input id="bus-holiday" type="checkbox"/>该日为节假日，停开周三增班</label><small>请按学校通知核对。</small></div>
 <div class="table-scroll"><table class="bus-table"><thead><tr><th>发车</th><th>预计到达</th><th>行驶方向</th><th>车次 / 数量</th><th>适用说明</th></tr></thead><tbody id="bus-body"></tbody></table></div>
 <details class="bus-rules"><summary>运行说明</summary><p>具体班次、方向与适用说明以登录后载入的云端资料为准。</p></details>
 </section>
-<section class="custom-services"><h2>常用服务</h2><div id="service-list"></div></section>
+</div>
+</details>
+
+<details class="service-fold" id="attendance-fold">
+<summary><span class="service-fold-icon" data-icon="checklist"></span><span class="service-fold-title"><strong>考勤表</strong><small>计量经济学、数字经济专业认知、微观经济学</small></span><span class="service-fold-extra" id="attendance-fold-meta"></span><span class="service-fold-chevron" data-icon="chevron-down"></span></summary>
+<div class="service-fold-body attendance-service-body">
+<div class="attendance-help">Excel 首张工作表需包含“姓名”和“学号”两列。原 Excel 文件不保存，只同步提取后的学生名单和考勤状态。</div>
+<div id="attendance-courses"></div>
+<input id="attendance-file" type="file" accept=".xlsx,.xls,.xlsb" hidden>
+</div>
+</details>
+
+<section class="custom-services" hidden><div id="service-list"></div></section>
 </section>
 <footer class="main-footer"><span>教学服务 <i>·</i> 2026—2027 第一学期</span><span id="device-date">周次随设备日期更新</span></footer>
 </main>
@@ -87,7 +108,7 @@
 <div hidden="" id="cloud-account"><p id="cloud-user"></p><div class="cloud-buttons"><button class="button primary" data-action="cloud-sync">立即同步</button><button class="button" data-action="cloud-logout">退出账号</button></div><p class="hint">课程、地点、进度、事项、服务和手动节假日标记自动同步。查看周次、筛选条件不互相干扰。未保存的编辑表单不会上传。</p></div>
 <div class="notice warning" hidden="" id="cloud-conflict"><strong>两台设备修改了相同内容</strong><p id="cloud-conflict-detail"></p><div class="cloud-buttons"><button class="button" data-action="cloud-conflict-local">保留本机版本</button><button class="button" data-action="cloud-conflict-remote">采用云端版本</button><button class="button" data-action="cloud-conflict-backup">备份两份版本</button></div></div>
 <details class="cloud-tools"><summary>备份与迁移</summary><div class="cloud-buttons"><button class="button" data-action="cloud-open-backup">数据备份</button><button class="button" data-action="cloud-migrate" id="cloud-migrate-button">将本机旧版资料迁入云端</button><button class="button" data-action="cloud-guest-backup">备份本机旧版资料</button><button class="button" data-action="cloud-drafts-backup">备份待同步草稿</button></div><p class="hint">首次迁入前请备份旧版资料；迁入操作需要确认，不会自动覆盖已有云端内容。</p></details>
-<p class="form-error" hidden="" id="cloud-error" role="alert"></p></div></dialog><dialog aria-labelledby="data-title" class="dialog" id="data-dialog"><div class="dialog-heading"><div><h2 id="data-title">数据与备份</h2></div><button aria-label="关闭数据管理" class="icon-button" data-action="close-dialog"><span data-icon="x"></span></button></div><div class="dialog-body"><div class="data-actions"><button data-action="export-json"><span data-icon="download"></span><span><strong>导出完整备份</strong><small>JSON · 包含课程、进度、事项和服务</small></span><span data-icon="arrow-right"></span></button><button data-action="import-json"><span data-icon="upload"></span><span><strong>导入完整备份</strong><small>恢复本网站导出的 JSON 数据</small></span><span data-icon="arrow-right"></span></button><button data-action="export-csv"><span data-icon="table"></span><span><strong>导出课程表</strong><small>CSV · 可用 Excel 打开</small></span><span data-icon="arrow-right"></span></button><button data-action="export-html"><span data-icon="code"></span><span><strong>生成发布网页 index.html</strong><small>公开快照；不包含登录密码或会话令牌</small></span><span data-icon="arrow-right"></span></button></div><input accept=".json,application/json" hidden="" id="import-file" type="file"/><div class="danger-zone"><span>恢复初始课表会替换当前账号或本机资料。</span><button class="text-button danger-text" data-action="reset">恢复发布版本</button></div></div></dialog>
+<p class="form-error" hidden="" id="cloud-error" role="alert"></p></div></dialog><dialog aria-labelledby="data-title" class="dialog" id="data-dialog"><div class="dialog-heading"><div><h2 id="data-title">数据与备份</h2></div><button aria-label="关闭数据管理" class="icon-button" data-action="close-dialog"><span data-icon="x"></span></button></div><div class="dialog-body"><div class="data-actions"><button data-action="export-json"><span data-icon="download"></span><span><strong>导出完整备份</strong><small>JSON · 包含课程、进度、事项、考勤和服务</small></span><span data-icon="arrow-right"></span></button><button data-action="import-json"><span data-icon="upload"></span><span><strong>导入完整备份</strong><small>恢复本网站导出的 JSON 数据</small></span><span data-icon="arrow-right"></span></button><button data-action="export-csv"><span data-icon="table"></span><span><strong>导出课程表</strong><small>CSV · 可用 Excel 打开</small></span><span data-icon="arrow-right"></span></button></div><input accept=".json,application/json" hidden="" id="import-file" type="file"/><div class="danger-zone"><span>恢复初始课表会替换当前账号或本机资料。</span><button class="text-button danger-text" data-action="reset">恢复发布版本</button></div></div></dialog>
 <dialog aria-labelledby="calendar-title" class="dialog wide-dialog calendar-dialog" id="calendar-dialog"><div class="dialog-heading"><div><h2 id="calendar-title">2026—2027 学年校历</h2><p class="calendar-dialog-subtitle">注册、教学周、考试周、假期与作息时间</p></div><button aria-label="关闭校历" class="icon-button" data-action="close-dialog"><span data-icon="x"></span></button></div><div class="dialog-body">
 <div class="calendar-toolbar"><div class="view-switch" id="calendar-term-switch"><button class="active" data-action="calendar-term" data-term="fall">秋季学期</button><button data-action="calendar-term" data-term="spring">春季学期</button></div><span id="calendar-term-range"></span></div>
 <div class="calendar-events" id="calendar-events"></div>
@@ -101,6 +122,6 @@
 <noscript><div class="noscript">请启用 JavaScript 以登录并使用教学工作台。</div></noscript>
 </div>
 <script id="seed-data" type="application/json">{"schemaVersion":1,"revision":"private-shell-v1","source":"","term":{"start":"2026-09-07","end":"2027-01-24","weeks":20,"title":""},"courses":[],"records":[],"notes":[],"buses":[],"services":[],"busHolidays":{},"reminderDismissed":{}}</script>
-<script src="./cloud-config.js?v=20260929-2"></script><script src="./cloud-sync.js?v=20260930-1"></script><script src="./script.js?v=20260930-1"></script>
+<script src="./cloud-config.js?v=20260929-2"></script><script src="./cloud-sync.js?v=20260930-1"></script><script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script><script src="./script.js?v=20260930-2"></script>
 </body>
 </html>
