@@ -7,7 +7,7 @@
 <meta content="#6956d9" name="theme-color"/>
 <meta content="2026—2027学年教学服务：多周课表、课程进度、重要事项、校历与校车时刻。" name="description"/>
 <title>教学服务 · 2026—2027 第一学期</title>
-<link href="./style.css?v=20260930-attendance10" rel="stylesheet"/>
+<link href="./style.css?v=20261001-attendance12" rel="stylesheet"/>
 </head>
 <body class="auth-locked">
 <section class="access-gate" id="access-gate"><div class="access-card"><div class="access-brand"><span class="brand-mark" data-icon="book"></span><strong>教学工作台</strong></div><h1>登录后查看</h1><p>教学工作台内容仅对指定账号开放。</p><form id="access-login-form"><label>账号<input id="access-email" type="email" value="1661531189@qq.com" readonly autocomplete="username"></label><label>密码<input id="access-password" type="password" required autocomplete="current-password" placeholder="请输入密码"></label><label class="access-remember"><input id="access-remember" type="checkbox">保持登录（仅私人设备）</label><button class="button primary access-login-button" type="submit">登录</button></form><p class="access-status" id="access-status">请使用指定账号登录。</p><p class="access-error" id="access-error" hidden></p></div></section>
@@ -70,8 +70,9 @@
 <details class="service-fold" id="attendance-fold">
 <summary><span class="service-fold-icon" data-icon="checklist"></span><span class="service-fold-title"><strong>考勤表</strong><small>计量经济学、数字经济专业认知、微观经济学</small></span><span class="service-fold-extra" id="attendance-fold-meta"></span><span class="service-fold-chevron" data-icon="chevron-down"></span></summary>
 <div class="service-fold-body attendance-service-body">
-<div class="attendance-head"><div class="attendance-help">Excel 首张工作表需包含“姓名”和“学号”两列。原 Excel 文件不保存，只同步提取后的学生名单和考勤状态。</div><button class="button small attendance-export-all" data-action="attendance-export-all"><span data-icon="download"></span>导出全部考勤</button></div>
+<div class="attendance-head"><div class="attendance-help">Excel 首张工作表需包含“姓名”和“学号”两列。原 Excel 文件不保存，只同步提取后的学生名单和考勤状态。</div></div>
 <div id="attendance-courses"></div>
+<div class="attendance-export-all-row"><button class="button attendance-export-all" data-action="attendance-export-all"><span data-icon="download"></span>导出全部考勤</button></div>
 <input id="attendance-file" type="file" accept=".xlsx,.xls,.xlsb" hidden>
 </div>
 </details>
