@@ -89,7 +89,8 @@ body.auth-locked{overflow:hidden;background:#f7f3fa}.access-gate{position:fixed;
 .attendance-student-name{display:inline-block;max-width:68px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle}
 .attendance-student-delete{margin-left:5px;border:0;background:transparent;color:#b7aabb;cursor:pointer;font-size:13px;line-height:1;padding:3px 4px;border-radius:5px;opacity:.45;vertical-align:middle}
 .attendance-name:hover .attendance-student-delete,.attendance-student-delete:focus-visible{opacity:1;color:#c52f3f;background:#fff0f1;outline:none}
-.attendance-status.state-present,.attendance-status.state-absent{background:#fff;border-color:#efb5bb;color:#d22638;font-weight:700}
+.attendance-status.state-present{background:#f2fbf5;border-color:#79c995;color:#16834b;font-weight:700}
+.attendance-status.state-absent{background:#fff4f4;border-color:#e6a6ad;color:#d22638;font-weight:700}
 .attendance-status.state-neutral{background:#fff;color:#111;border-color:#ddd1e4;font-weight:500}
 .attendance-table th.attendance-today-col{background:#fff7f7!important;color:#c82432!important;box-shadow:inset 2px 0 #df3342,inset -2px 0 #df3342,inset 0 2px #df3342}
 .attendance-table td.attendance-today-col{background:#fffafa;box-shadow:inset 2px 0 #df3342,inset -2px 0 #df3342}
@@ -103,3 +104,8 @@ body.auth-locked{overflow:hidden;background:#f7f3fa}.access-gate{position:fixed;
  .attendance-student-delete{opacity:.8}
  .attendance-student-name{max-width:48px}
 }
+
+/* Attendance final-column enforcement */
+.attendance-table th.attendance-id,.attendance-table td.attendance-id{position:sticky!important;left:auto!important;right:0!important;z-index:6;box-shadow:-1px 0 0 #e8deee;background:#fff!important}
+.attendance-table thead th.attendance-id{background:#faf7fc!important;z-index:8}
+.attendance-table .attendance-name{left:0!important}
