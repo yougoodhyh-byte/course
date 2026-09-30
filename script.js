@@ -202,6 +202,7 @@ const STORAGE_KEY='teaching-workspace:2026-fall:v1:'+location.pathname.replace(/
 let data=clone(published), today=C.localISO(), selectedWeeks=new Set([C.defaultWeek(today)]), currentTab='schedule', courseFilter='', showEmpty=false, viewMode='grid', noteFilter='all', calendarTerm='fall';
 let dirty=false, publishedRevision=published.revision, cacheWriteFailed=false;
 let editingIds=[], editingBulk=false, editingNoteId=null, editingServiceId=null, managementGroups=[], attendanceUploadCourseId=null;
+const attendanceSearchQueries=new Map();
 let hasNewRelease=false;
 try{
  const saved=localStorage.getItem(STORAGE_KEY);
@@ -505,36 +506,74 @@ function attendanceSheet(courseId){return data.attendance?.courses?.[courseId]||
 function attendanceValue(sheet,studentId,date){return String(sheet.marks?.[studentId]?.[date]||'-');}
 function attendanceWeek(date){const n=Math.floor((C.dayValue(date)-C.dayValue(C.START))/7)+1;return n>=1&&n<=20?n:null;}
 function attendanceStatusClass(value){return value==='1'?'state-present':value==='-1'?'state-absent':'state-neutral';}
+function attendanceSearchQuery(courseId){return String(attendanceSearchQueries.get(courseId)||'').trim().toLowerCase();}
+function attendanceStudentMatches(st,query){
+ if(!query)return true;
+ return String(st.name||'').toLowerCase().includes(query)||String(st.studentNo||'').toLowerCase().includes(query);
+}
+function scrollAttendanceToToday(scope,behavior='smooth'){
+ const scroll=scope?.querySelector?.('.attendance-table-scroll');if(!scroll)return;
+ const target=scroll.querySelector('thead .attendance-today-col');if(!target)return;
+ const left=Math.max(0,target.offsetLeft-(scroll.clientWidth-target.offsetWidth)/2);
+ scroll.scrollTo({left,behavior});
+}
+function wireAttendanceAutoLocate(host){
+ host.querySelectorAll('.attendance-course').forEach(details=>{
+  details.addEventListener('toggle',()=>{if(details.open)requestAnimationFrame(()=>scrollAttendanceToToday(details));});
+ });
+ const fold=$('#attendance-fold');
+ if(fold&&!fold.dataset.attendanceLocateWired){
+  fold.dataset.attendanceLocateWired='1';
+  fold.addEventListener('toggle',()=>{
+   if(!fold.open)return;
+   const todayCourse=host.querySelector('.attendance-course[data-has-today="1"]');
+   if(todayCourse){todayCourse.open=true;requestAnimationFrame(()=>scrollAttendanceToToday(todayCourse));}
+  });
+ }
+ if(fold?.open){
+  const todayCourse=host.querySelector('.attendance-course[data-has-today="1"]');
+  if(todayCourse){todayCourse.open=true;requestAnimationFrame(()=>scrollAttendanceToToday(todayCourse,'auto'));}
+ }
+}
 function renderAttendance(){
  const host=$('#attendance-courses');if(!host)return;
+ const openIds=new Set($$('.attendance-course[open]').map(d=>d.dataset.attendanceCourse));
  const courses=attendanceRequiredCourses();
  $('#attendance-fold-meta').textContent=courses.length+'门课程';
  let html='';
  for(const item of courses){
   const course=item.course,display=item.display,sheet=attendanceSheet(course.id),dates=attendanceDates(course.id),students=sheet.students||[];
   const fileInfo=students.length?(esc(sheet.filename||'已导入学生名单')+' · '+students.length+'名学生'):'未导入学生名单';
+  const query=attendanceSearchQuery(course.id),hasToday=dates.includes(today);
   let table='';
   if(students.length){
    let head='<div class="attendance-table-scroll"><table class="attendance-table"><thead><tr><th class="attendance-name">姓名</th><th class="attendance-id">学号</th>';
-   for(const date of dates){const w=attendanceWeek(date);head+='<th class="attendance-date"><span>'+esc(date.slice(5).replace('-','/'))+'</span><small>'+(w?'第'+w+'周':'')+'</small></th>';}
+   for(const date of dates){
+    const w=attendanceWeek(date),todayClass=date===today?' attendance-today-col':'';
+    head+='<th class="attendance-date'+todayClass+'" data-attendance-date="'+esc(date)+'"><span>'+esc(date.slice(5).replace('-','/'))+'</span><small>'+(w?'第'+w+'周':'')+(date===today?' · 今天':'')+'</small></th>';
+   }
    head+='</tr></thead><tbody>';
    let body='';
    for(const st of students){
-    body+='<tr><td class="attendance-name">'+esc(st.name)+'</td><td class="attendance-id">'+esc(st.studentNo)+'</td>';
+    const visible=attendanceStudentMatches(st,query);
+    body+='<tr data-attendance-student-row data-name="'+esc(String(st.name||'').toLowerCase())+'" data-student-no="'+esc(String(st.studentNo||'').toLowerCase())+'"'+(visible?'':' hidden')+'>';
+    body+='<td class="attendance-name"><span class="attendance-student-name">'+esc(st.name)+'</span><button class="attendance-student-delete" data-action="attendance-delete-student" data-course="'+esc(course.id)+'" data-student="'+esc(st.id)+'" aria-label="删除学生 '+esc(st.name)+'" title="删除学生">×</button></td>';
+    body+='<td class="attendance-id">'+esc(st.studentNo)+'</td>';
     for(const date of dates){
-     const value=attendanceValue(sheet,st.id,date);
-     body+='<td><select class="attendance-status '+attendanceStatusClass(value)+'" data-attendance-course="'+esc(course.id)+'" data-student="'+esc(st.id)+'" data-date="'+esc(date)+'" aria-label="'+esc(st.name)+' '+esc(date)+'考勤">';
+     const value=attendanceValue(sheet,st.id,date),todayClass=date===today?' attendance-today-col':'';
+     body+='<td class="'+todayClass.trim()+'" data-attendance-date="'+esc(date)+'"><select class="attendance-status '+attendanceStatusClass(value)+'" data-attendance-course="'+esc(course.id)+'" data-student="'+esc(st.id)+'" data-date="'+esc(date)+'" aria-label="'+esc(st.name)+' '+esc(date)+'考勤">';
      body+='<option value="-"'+(value==='-'?' selected':'')+'>-</option><option value="1"'+(value==='1'?' selected':'')+'>1</option><option value="-1"'+(value==='-1'?' selected':'')+'>-1</option></select></td>';
     }
     body+='</tr>';
    }
    table=head+body+'</tbody></table></div>';
   }else table='<div class="attendance-empty">上传 Excel 后自动生成学生名单与考勤日期。</div>';
-  html+='<details class="attendance-course" data-attendance-course="'+esc(course.id)+'"><summary><span><strong>'+esc(display)+'</strong><small>'+fileInfo+'</small></span><span class="service-fold-chevron">'+icon('chevron-down')+'</span></summary><div class="attendance-course-body">';
-  html+='<div class="attendance-toolbar"><div><strong>'+esc(display)+'</strong><small>'+dates.length+' 个上课日期 · “-”未登记，“1”合格，“-1”缺席</small></div><button class="button small" data-action="attendance-upload" data-course="'+esc(course.id)+'">'+(students.length?'替换 Excel':'上传 Excel')+'</button></div>';
+  const openAttr=openIds.has(course.id)?' open':'';
+  html+='<details class="attendance-course" data-attendance-course="'+esc(course.id)+'" data-has-today="'+(hasToday?'1':'0')+'"'+openAttr+'><summary><span><strong>'+esc(display)+'</strong><small>'+fileInfo+(hasToday?' · 今天有课':'')+'</small></span><span class="service-fold-chevron">'+icon('chevron-down')+'</span></summary><div class="attendance-course-body">';
+  html+='<div class="attendance-toolbar"><div><strong>'+esc(display)+'</strong><small>'+dates.length+' 个上课日期 · “-”未登记，“1”到勤，“-1”缺勤</small></div><div class="attendance-toolbar-actions">'+(students.length?'<label class="attendance-search"><input type="search" value="'+esc(attendanceSearchQueries.get(course.id)||'')+'" placeholder="检索姓名或学号" data-attendance-search="'+esc(course.id)+'" autocomplete="off" aria-label="'+esc(display)+'检索学生"></label>':'')+'<button class="button small" data-action="attendance-upload" data-course="'+esc(course.id)+'">'+(students.length?'替换 Excel':'上传 Excel')+'</button></div></div>';
   html+=table+'</div></details>';
  }
- host.innerHTML=html;fillIcons();
+ host.innerHTML=html;fillIcons();wireAttendanceAutoLocate(host);
 }
 function normalizeExcelHeader(value){return String(value??'').trim().replace(/[\s　_\-:：()（）]/g,'').toLowerCase();}
 function findExcelHeader(row,type){
@@ -576,6 +615,16 @@ function setAttendanceStatus(el){
  if(value==='-'){delete sheet.marks[studentId][date];if(!Object.keys(sheet.marks[studentId]).length)delete sheet.marks[studentId];}else sheet.marks[studentId][date]=value;
  el.classList.remove('state-neutral','state-present','state-absent');el.classList.add(attendanceStatusClass(value));save();
 }
+async function deleteAttendanceStudent(courseId,studentId){
+ const sheet=data.attendance?.courses?.[courseId];if(!sheet)return;
+ const st=sheet.students?.find(s=>s.id===studentId);if(!st)return;
+ const ok=await confirmAction('将从该课程考勤名单中删除“'+st.name+'（'+st.studentNo+'）”。\n该学生已有考勤记录也会同时删除。','删除学生','确认删除');
+ if(!ok)return;
+ sheet.students=sheet.students.filter(s=>s.id!==studentId);
+ delete sheet.marks[studentId];
+ save();renderAttendance();notifySaved('已删除学生 '+st.name+'。');
+}
+
 function openService(id=null){
  editingServiceId=id;const s=data.services.find(s=>s.id===id);
  $('#service-title').textContent=s?'编辑服务':'添加服务';$('#service-input-title').value=s?.title||'';$('#service-input-url').value=s?.url||'';$('#service-input-description').value=s?.description||'';$('#delete-service').hidden=!s;$('#service-error').hidden=true;$('#service-dialog').showModal();
@@ -705,6 +754,7 @@ document.addEventListener('click',async event=>{
  case 'show-calendar':showCalendar();break;
  case 'calendar-term':calendarTerm=b.dataset.term==='spring'?'spring':'fall';renderCalendar();break;
  case 'attendance-upload':attendanceUploadCourseId=b.dataset.course;$('#attendance-file').click();break;
+ case 'attendance-delete-student':await deleteAttendanceStudent(b.dataset.course,b.dataset.student);break;
  case 'data':$('#data-dialog').showModal();break;
  case 'export-json':exportJSON();break;
  case 'export-csv':exportCSV();break;
@@ -732,7 +782,14 @@ document.addEventListener('change',event=>{
 });
 document.addEventListener('input',event=>{
  const el=event.target;
- if(el.dataset.progress){
+ if(el.dataset.attendanceSearch){
+  const courseId=el.dataset.attendanceSearch,query=String(el.value||'').trim().toLowerCase();
+  attendanceSearchQueries.set(courseId,el.value||'');
+  const details=el.closest('.attendance-course');
+  details?.querySelectorAll('[data-attendance-student-row]').forEach(row=>{
+   row.hidden=!!query&&!((row.dataset.name||'').includes(query)||(row.dataset.studentNo||'').includes(query));
+  });
+ }else if(el.dataset.progress){
   const r=data.records.find(r=>r.id===el.dataset.progress);if(!r)return;
   r.progress=el.value;save('进度已保存到本机');
   $$('[data-progress]').forEach(other=>{if(other!==el&&other.dataset.progress===r.id)other.value=r.progress;});
@@ -765,7 +822,7 @@ try{
  cloud=new window.TeachingCloud({getData:()=>clone(data),apply:applyCloudData,normalize:value=>C.normalizeBuses(value),guest:()=>clone(guestSnapshot),guestDirty:()=>guestWasDirty,confirm:confirmAction,download,notify:toast,isEditing:()=>!!document.querySelector('#course-dialog[open],#note-dialog[open],#service-dialog[open],#manage-dialog[open]')||document.activeElement?.classList?.contains('attendance-status')});
 }catch(error){$('#storage-banner').hidden=false;$('#storage-banner').textContent='同步组件未能启动，当前仅本机保存：'+error.message;}
 // Prevent edits while changing accounts / performing the initial cloud read.
-const writes=new Set(['add-course','add-course-week','add-course-slot','edit-record','edit-group','add-course-from-manage','delete-editing','add-note','edit-note','delete-note','complete-reminder','dismiss-reminder','attendance-upload','add-service','edit-service','delete-service','import-json','reset','use-published','keep-local']);
+const writes=new Set(['add-course','add-course-week','add-course-slot','edit-record','edit-group','add-course-from-manage','delete-editing','add-note','edit-note','delete-note','complete-reminder','dismiss-reminder','attendance-upload','attendance-delete-student','add-service','edit-service','delete-service','import-json','reset','use-published','keep-local']);
 document.addEventListener('click',event=>{
  if(cloud?.isLocked()&&(writes.has(event.target.closest('[data-action]')?.dataset.action)||event.target.matches('[data-note-check],#bus-holiday'))){event.preventDefault();event.stopImmediatePropagation();toast('请先完成云端读取，或在“账号与同步”中重试。',true);}
 },true);
