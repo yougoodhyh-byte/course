@@ -511,28 +511,75 @@ function attendanceStudentMatches(st,query){
  if(!query)return true;
  return String(st.name||'').toLowerCase().includes(query)||String(st.studentNo||'').toLowerCase().includes(query);
 }
-function scrollAttendanceToToday(scope,behavior='smooth'){
+function localDateTimeMs(date,time){
+ const parts=String(date).split('-').map(Number),clock=String(time).split(':').map(Number);
+ return new Date(parts[0],parts[1]-1,parts[2],clock[0]||0,clock[1]||0,0,0).getTime();
+}
+function attendanceTiming(courseId,now=new Date()){
+ const nowMs=now.getTime(),byDate=new Map();
+ for(const r of data.records.filter(r=>r.courseId===courseId)){
+  const date=C.dateFor(r.week,r.day),period=C.TIMES[C.slotIndex(r.slot)];if(!period)continue;
+  const start=localDateTimeMs(date,period.start),end=localDateTimeMs(date,period.end);
+  if(!byDate.has(date))byDate.set(date,[]);
+  byDate.get(date).push({start,end});
+ }
+ let nearestDate='',nearestDistance=Infinity,activeDate='';
+ for(const [date,occurrences] of byDate){
+  let dateDistance=Infinity;
+  for(const o of occurrences){
+   const active=nowMs>=o.start&&nowMs<=o.end;
+   if(active){activeDate=date;dateDistance=0;break;}
+   dateDistance=Math.min(dateDistance,nowMs<o.start?o.start-nowMs:nowMs-o.end);
+  }
+  if(dateDistance<nearestDistance){nearestDistance=dateDistance;nearestDate=date;}
+ }
+ return {nearestDate,nearestDistance,activeDate};
+}
+function scrollAttendanceToNearest(scope,behavior='smooth'){
  const scroll=scope?.querySelector?.('.attendance-table-scroll');if(!scroll)return;
- const target=scroll.querySelector('thead .attendance-today-col');if(!target)return;
+ const target=scroll.querySelector('thead .attendance-nearest-col');if(!target)return;
  const left=Math.max(0,target.offsetLeft-(scroll.clientWidth-target.offsetWidth)/2);
  scroll.scrollTo({left,behavior});
 }
-function wireAttendanceAutoLocate(host){
+function updateAttendanceTimingUI(){
+ const host=$('#attendance-courses');if(!host)return;
+ const now=new Date();
  host.querySelectorAll('.attendance-course').forEach(details=>{
-  details.addEventListener('toggle',()=>{if(details.open)requestAnimationFrame(()=>scrollAttendanceToToday(details));});
+  const courseId=details.dataset.attendanceCourse,timing=attendanceTiming(courseId,now);
+  details.dataset.nearestDistance=Number.isFinite(timing.nearestDistance)?String(timing.nearestDistance):'';
+  details.dataset.nearestDate=timing.nearestDate||'';
+  details.dataset.activeDate=timing.activeDate||'';
+  details.classList.toggle('is-class-active',!!timing.activeDate);
+  details.querySelectorAll('[data-attendance-date]').forEach(cell=>{
+   const date=cell.dataset.attendanceDate;
+   cell.classList.toggle('attendance-nearest-col',!!timing.nearestDate&&date===timing.nearestDate);
+   cell.classList.toggle('attendance-active-col',!!timing.activeDate&&date===timing.activeDate);
+  });
+ });
+}
+function wireAttendanceAutoLocate(host){
+ updateAttendanceTimingUI();
+ host.querySelectorAll('.attendance-course').forEach(details=>{
+  details.addEventListener('toggle',()=>{if(details.open){updateAttendanceTimingUI();requestAnimationFrame(()=>scrollAttendanceToNearest(details));}});
  });
  const fold=$('#attendance-fold');
  if(fold&&!fold.dataset.attendanceLocateWired){
   fold.dataset.attendanceLocateWired='1';
   fold.addEventListener('toggle',()=>{
    if(!fold.open)return;
-   const todayCourse=host.querySelector('.attendance-course[data-has-today="1"]');
-   if(todayCourse){todayCourse.open=true;requestAnimationFrame(()=>scrollAttendanceToToday(todayCourse));}
+   updateAttendanceTimingUI();
+   const courses=[...host.querySelectorAll('.attendance-course')].filter(d=>Number.isFinite(Number(d.dataset.nearestDistance)));
+   courses.sort((a,b)=>Number(a.dataset.nearestDistance)-Number(b.dataset.nearestDistance));
+   const nearestCourse=courses[0];
+   if(nearestCourse){nearestCourse.open=true;requestAnimationFrame(()=>scrollAttendanceToNearest(nearestCourse));}
   });
  }
  if(fold?.open){
-  const todayCourse=host.querySelector('.attendance-course[data-has-today="1"]');
-  if(todayCourse){todayCourse.open=true;requestAnimationFrame(()=>scrollAttendanceToToday(todayCourse,'auto'));}
+  updateAttendanceTimingUI();
+  const courses=[...host.querySelectorAll('.attendance-course')].filter(d=>Number.isFinite(Number(d.dataset.nearestDistance)));
+  courses.sort((a,b)=>Number(a.dataset.nearestDistance)-Number(b.dataset.nearestDistance));
+  const nearestCourse=courses[0];
+  if(nearestCourse){nearestCourse.open=true;requestAnimationFrame(()=>scrollAttendanceToNearest(nearestCourse,'auto'));}
  }
 }
 function renderAttendance(){
@@ -544,13 +591,13 @@ function renderAttendance(){
  for(const item of courses){
   const course=item.course,display=item.display,sheet=attendanceSheet(course.id),dates=attendanceDates(course.id),students=sheet.students||[];
   const fileInfo=students.length?(esc(sheet.filename||'已导入学生名单')+' · '+students.length+'名学生'):'未导入学生名单';
-  const query=attendanceSearchQuery(course.id),hasToday=dates.includes(today);
+  const query=attendanceSearchQuery(course.id),timing=attendanceTiming(course.id),nearestDate=timing.nearestDate,activeDate=timing.activeDate;
   let table='';
   if(students.length){
    let head='<div class="attendance-table-scroll"><table class="attendance-table"><thead><tr><th class="attendance-name">姓名</th>';
    for(const date of dates){
-    const w=attendanceWeek(date),todayClass=date===today?' attendance-today-col':'';
-    head+='<th class="attendance-date'+todayClass+'" data-attendance-date="'+esc(date)+'"><span>'+esc(date.slice(5).replace('-','/'))+'</span><small>'+(w?'第'+w+'周':'')+(date===today?' · 今天':'')+'</small></th>';
+    const w=attendanceWeek(date),nearestClass=date===nearestDate?' attendance-nearest-col':'',activeClass=date===activeDate?' attendance-active-col':'';
+    head+='<th class="attendance-date'+nearestClass+activeClass+'" data-attendance-date="'+esc(date)+'"><span>'+esc(date.slice(5).replace('-','/'))+'</span><small>'+(w?'第'+w+'周':'')+(date===activeDate?' · 上课中':date===today?' · 今天':'')+'</small></th>';
    }
    head+='<th class="attendance-id">学号</th></tr></thead><tbody>';
    let body='';
@@ -559,8 +606,8 @@ function renderAttendance(){
     body+='<tr data-attendance-student-row data-name="'+esc(String(st.name||'').toLowerCase())+'" data-student-no="'+esc(String(st.studentNo||'').toLowerCase())+'"'+(visible?'':' hidden')+'>';
     body+='<td class="attendance-name"><span class="attendance-student-name">'+esc(st.name)+'</span><button class="attendance-student-delete" data-action="attendance-delete-student" data-course="'+esc(course.id)+'" data-student="'+esc(st.id)+'" aria-label="删除学生 '+esc(st.name)+'" title="删除学生">×</button></td>';
     for(const date of dates){
-     const value=attendanceValue(sheet,st.id,date),todayClass=date===today?' attendance-today-col':'';
-     body+='<td class="'+todayClass.trim()+'" data-attendance-date="'+esc(date)+'"><select class="attendance-status '+attendanceStatusClass(value)+'" data-attendance-course="'+esc(course.id)+'" data-student="'+esc(st.id)+'" data-date="'+esc(date)+'" aria-label="'+esc(st.name)+' '+esc(date)+'考勤">';
+     const value=attendanceValue(sheet,st.id,date),nearestClass=date===nearestDate?'attendance-nearest-col':'',activeClass=date===activeDate?' attendance-active-col':'';
+     body+='<td class="'+(nearestClass+activeClass).trim()+'" data-attendance-date="'+esc(date)+'"><select class="attendance-status '+attendanceStatusClass(value)+'" data-attendance-course="'+esc(course.id)+'" data-student="'+esc(st.id)+'" data-date="'+esc(date)+'" aria-label="'+esc(st.name)+' '+esc(date)+'考勤">';
      body+='<option value="-"'+(value==='-'?' selected':'')+'>-</option><option value="1"'+(value==='1'?' selected':'')+'>1</option><option value="-1"'+(value==='-1'?' selected':'')+'>-1</option></select></td>';
     }
     body+='<td class="attendance-id">'+esc(st.studentNo)+'</td>';
@@ -569,7 +616,7 @@ function renderAttendance(){
    table=head+body+'</tbody></table></div>';
   }else table='<div class="attendance-empty">上传 Excel 后自动生成学生名单与考勤日期。</div>';
   const openAttr=openIds.has(course.id)?' open':'';
-  html+='<details class="attendance-course" data-attendance-course="'+esc(course.id)+'" data-has-today="'+(hasToday?'1':'0')+'"'+openAttr+'><summary><span><strong>'+esc(display)+'</strong><small>'+fileInfo+(hasToday?' · 今天有课':'')+'</small></span><span class="service-fold-chevron">'+icon('chevron-down')+'</span></summary><div class="attendance-course-body">';
+  html+='<details class="attendance-course'+(activeDate?' is-class-active':'')+'" data-attendance-course="'+esc(course.id)+'" data-nearest-date="'+esc(nearestDate||'')+'" data-nearest-distance="'+(Number.isFinite(timing.nearestDistance)?String(timing.nearestDistance):'')+'" data-active-date="'+esc(activeDate||'')+'"'+openAttr+'><summary><span><strong>'+esc(display)+'</strong><small>'+fileInfo+(activeDate?' · 正在上课':'')+'</small></span><span class="service-fold-chevron">'+icon('chevron-down')+'</span></summary><div class="attendance-course-body">';
   html+='<div class="attendance-toolbar"><div><strong>'+esc(display)+'</strong><small>'+dates.length+' 个上课日期 · “-”未登记，“1”到勤，“-1”缺勤</small></div>'+(students.length?'<div class="attendance-toolbar-actions"><label class="attendance-search"><input type="search" value="'+esc(attendanceSearchQueries.get(course.id)||'')+'" placeholder="检索姓名或学号" data-attendance-search="'+esc(course.id)+'" autocomplete="off" aria-label="'+esc(display)+'检索学生"></label></div>':'')+'</div>';
   html+=table;
   html+='<div class="attendance-bottom-actions">'+(students.length?'<button class="button" data-action="attendance-export-course" data-course="'+esc(course.id)+'">'+icon('download')+'导出考勤</button>':'')+'<button class="button primary" data-action="attendance-upload" data-course="'+esc(course.id)+'">'+(students.length?'替换 Excel':'上传 Excel')+'</button></div>';
@@ -855,6 +902,7 @@ window.addEventListener('focus',checkDate);document.addEventListener('visibility
 window.addEventListener('pageshow',event=>{if(event.persisted){today=C.localISO();selectedWeeks=new Set([C.defaultWeek(today)]);refreshSchedule();renderTodayReminders();}});
 window.addEventListener('beforeunload',event=>{if(cacheWriteFailed){event.preventDefault();event.returnValue='';}});
 setInterval(checkDate,30000);
+setInterval(()=>{if(currentTab==='services'&&$('#attendance-fold')?.open)updateAttendanceTimingUI();},30000);
 // Always start with the true current week (or the nearest semester boundary),
 // never with a previously chosen review week from localStorage.
 refreshAll();showTab(['notes','services'].includes(location.hash.slice(1))?location.hash.slice(1):'schedule');
