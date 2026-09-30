@@ -488,6 +488,94 @@ function renderServices(){
  renderAttendance();
  $('#service-list').innerHTML=data.services.length?`<div class="service-links">${data.services.map(s=>`<article class="service-link"><span class="service-icon" style="width:33px;height:33px;border-radius:10px">${icon('link')}</span><button class="icon-button service-edit" data-action="edit-service" data-service="${esc(s.id)}" aria-label="编辑服务：${esc(s.title)}">${icon('edit')}</button><h3>${esc(s.title)}</h3>${s.description?`<p>${esc(s.description)}</p>`:''}${s.url?`<a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">打开服务 ${icon('arrow-up-right')}</a>`:''}</article>`).join('')}</div>`:'';
 }
+const ATTENDANCE_MATCHERS=[
+ {test:n=>n.includes('计量经济学'),display:n=>n},
+ {test:n=>n.includes('专业认知'),display:n=>n==='专业认知'?'数字经济专业认知':n},
+ {test:n=>n.includes('微观经济学'),display:n=>n}
+];
+function attendanceRequiredCourses(){
+ const seen=new Set(),out=[];
+ for(const m of ATTENDANCE_MATCHERS){const c=data.courses.find(c=>m.test(c.name));if(c&&!seen.has(c.id)){seen.add(c.id);out.push({course:c,display:m.display(c.name)});}}
+ return out;
+}
+function attendanceDates(courseId){
+ return [...new Set(data.records.filter(r=>r.courseId===courseId).map(r=>C.dateFor(r.week,r.day)))].sort();
+}
+function attendanceSheet(courseId){return data.attendance?.courses?.[courseId]||{filename:'',importedAt:'',students:[],marks:{}};}
+function attendanceValue(sheet,studentId,date){return String(sheet.marks?.[studentId]?.[date]||'-');}
+function attendanceWeek(date){const n=Math.floor((C.dayValue(date)-C.dayValue(C.START))/7)+1;return n>=1&&n<=20?n:null;}
+function attendanceStatusClass(value){return value==='1'?'state-present':value==='-1'?'state-absent':'state-neutral';}
+function renderAttendance(){
+ const host=$('#attendance-courses');if(!host)return;
+ const courses=attendanceRequiredCourses();
+ $('#attendance-fold-meta').textContent=courses.length+'门课程';
+ let html='';
+ for(const item of courses){
+  const course=item.course,display=item.display,sheet=attendanceSheet(course.id),dates=attendanceDates(course.id),students=sheet.students||[];
+  const fileInfo=students.length?(esc(sheet.filename||'已导入学生名单')+' · '+students.length+'名学生'):'未导入学生名单';
+  let table='';
+  if(students.length){
+   let head='<div class="attendance-table-scroll"><table class="attendance-table"><thead><tr><th class="attendance-name">姓名</th><th class="attendance-id">学号</th>';
+   for(const date of dates){const w=attendanceWeek(date);head+='<th class="attendance-date"><span>'+esc(date.slice(5).replace('-','/'))+'</span><small>'+(w?'第'+w+'周':'')+'</small></th>';}
+   head+='</tr></thead><tbody>';
+   let body='';
+   for(const st of students){
+    body+='<tr><td class="attendance-name">'+esc(st.name)+'</td><td class="attendance-id">'+esc(st.studentNo)+'</td>';
+    for(const date of dates){
+     const value=attendanceValue(sheet,st.id,date);
+     body+='<td><select class="attendance-status '+attendanceStatusClass(value)+'" data-attendance-course="'+esc(course.id)+'" data-student="'+esc(st.id)+'" data-date="'+esc(date)+'" aria-label="'+esc(st.name)+' '+esc(date)+'考勤">';
+     body+='<option value="-"'+(value==='-'?' selected':'')+'>-</option><option value="1"'+(value==='1'?' selected':'')+'>1</option><option value="-1"'+(value==='-1'?' selected':'')+'>-1</option></select></td>';
+    }
+    body+='</tr>';
+   }
+   table=head+body+'</tbody></table></div>';
+  }else table='<div class="attendance-empty">上传 Excel 后自动生成学生名单与考勤日期。</div>';
+  html+='<details class="attendance-course" data-attendance-course="'+esc(course.id)+'"><summary><span><strong>'+esc(display)+'</strong><small>'+fileInfo+'</small></span><span class="service-fold-chevron">'+icon('chevron-down')+'</span></summary><div class="attendance-course-body">';
+  html+='<div class="attendance-toolbar"><div><strong>'+esc(display)+'</strong><small>'+dates.length+' 个上课日期 · “-”未登记，“1”合格，“-1”缺席</small></div><button class="button small" data-action="attendance-upload" data-course="'+esc(course.id)+'">'+(students.length?'替换 Excel':'上传 Excel')+'</button></div>';
+  html+=table+'</div></details>';
+ }
+ host.innerHTML=html;fillIcons();
+}
+function normalizeExcelHeader(value){return String(value??'').trim().replace(/[\s　_\-:：()（）]/g,'').toLowerCase();}
+function findExcelHeader(row,type){
+ const normalized=row.map(normalizeExcelHeader);
+ if(type==='name')return normalized.findIndex(v=>v==='姓名'||v==='学生姓名'||v==='name'||v==='studentname'||v.endsWith('姓名'));
+ return normalized.findIndex(v=>v==='学号'||v==='学生学号'||v==='学籍号'||v==='studentid'||v==='studentno'||v==='studentnumber'||v.endsWith('学号'));
+}
+async function parseAttendanceExcel(file){
+ if(!window.XLSX)throw new Error('Excel 解析组件未加载，请刷新页面后重试。');
+ if(file.size>15*1024*1024)throw new Error('Excel 文件超过 15MB，请精简后再上传。');
+ const workbook=XLSX.read(await file.arrayBuffer(),{type:'array',cellDates:false});
+ const first=workbook.SheetNames[0];if(!first)throw new Error('Excel 中没有可读取的工作表。');
+ const rows=XLSX.utils.sheet_to_json(workbook.Sheets[first],{header:1,defval:'',raw:false,blankrows:false});
+ let header=-1,nameCol=-1,idCol=-1;
+ for(let i=0;i<Math.min(rows.length,25);i++){const row=Array.isArray(rows[i])?rows[i]:[];const n=findExcelHeader(row,'name'),id=findExcelHeader(row,'id');if(n>=0&&id>=0){header=i;nameCol=n;idCol=id;break;}}
+ if(header<0)throw new Error('未找到“姓名”和“学号”两列表头。请检查 Excel 首张工作表。');
+ const students=[],seen=new Set();let skipped=0;
+ for(let i=header+1;i<rows.length;i++){
+  const row=rows[i]||[],name=String(row[nameCol]??'').trim(),studentNo=String(row[idCol]??'').trim();
+  if(!name&&!studentNo)continue;if(!name||!studentNo){skipped++;continue;}if(seen.has(studentNo)){skipped++;continue;}
+  seen.add(studentNo);students.push({name,studentNo});
+ }
+ if(!students.length)throw new Error('没有读取到完整的姓名和学号记录。');
+ return {students,skipped};
+}
+async function importAttendanceExcel(courseId,file){
+ const course=data.courses.find(c=>c.id===courseId);if(!course||!file)return;
+ const parsed=await parseAttendanceExcel(file),old=attendanceSheet(courseId);
+ if(old.students?.length){const ok=await confirmAction('将用“'+file.name+'”更新 '+course.name+' 的学生名单。\n相同学号会保留已有考勤；不在新名单中的学生将移除。','替换考勤名单','确认替换');if(!ok)return;}
+ const oldByNo=new Map((old.students||[]).map(s=>[s.studentNo,s]));
+ const students=parsed.students.map(s=>{const prev=oldByNo.get(s.studentNo);return prev?{...prev,name:s.name,studentNo:s.studentNo}:{id:uid('student'),name:s.name,studentNo:s.studentNo};});
+ const marks={};for(const st of students){if(old.marks?.[st.id])marks[st.id]=old.marks[st.id];}
+ data.attendance.courses[courseId]={filename:file.name,importedAt:new Date().toISOString(),students,marks};
+ save();renderAttendance();notifySaved('已导入 '+students.length+' 名学生'+(parsed.skipped?'，跳过 '+parsed.skipped+' 条不完整或重复记录':'')+'。');
+}
+function setAttendanceStatus(el){
+ const courseId=el.dataset.attendanceCourse,studentId=el.dataset.student,date=el.dataset.date,value=el.value,sheet=data.attendance.courses[courseId];if(!sheet)return;
+ if(!sheet.marks[studentId])sheet.marks[studentId]={};
+ if(value==='-'){delete sheet.marks[studentId][date];if(!Object.keys(sheet.marks[studentId]).length)delete sheet.marks[studentId];}else sheet.marks[studentId][date]=value;
+ el.classList.remove('state-neutral','state-present','state-absent');el.classList.add(attendanceStatusClass(value));save();
+}
 function openService(id=null){
  editingServiceId=id;const s=data.services.find(s=>s.id===id);
  $('#service-title').textContent=s?'编辑服务':'添加服务';$('#service-input-title').value=s?.title||'';$('#service-input-url').value=s?.url||'';$('#service-input-description').value=s?.description||'';$('#delete-service').hidden=!s;$('#service-error').hidden=true;$('#service-dialog').showModal();
@@ -523,7 +611,7 @@ async function exportHTML(){
  const doc=document.documentElement.cloneNode(true);
  // Remove rendered state and dialogs. The scripts reconstruct the page from the
  // new seed on each visit, independently of today's selected weeks or tab.
- const dynamicIds=['stats','view-weeks','selected-weeks','course-legend','weekboards','today-reminders','manage-list','notes-list','bus-body','service-list','calendar-events','calendar-weeks','calendar-class-times','calendar-exam-times','edit-weeks','edit-slots'];
+ const dynamicIds=['stats','view-weeks','selected-weeks','course-legend','weekboards','today-reminders','manage-list','notes-list','bus-body','service-list','attendance-courses','calendar-events','calendar-weeks','calendar-class-times','calendar-exam-times','edit-weeks','edit-slots'];
  dynamicIds.forEach(id=>{const el=doc.querySelector('#'+id);if(el)el.innerHTML='';});
  doc.querySelector('#seed-data').textContent=JSON.stringify(newSeed).replace(/</g,'\\u003c');
  doc.querySelectorAll('dialog').forEach(d=>d.removeAttribute('open'));
@@ -539,7 +627,8 @@ async function exportHTML(){
    const style=document.createElement('style');style.textContent=await response.text();link.replaceWith(style);
   }
   for(const source of [...doc.querySelectorAll('script[src]')]){
-   const response=await fetch(source.getAttribute('src'));if(!response.ok)throw new Error('JS');
+   const src=source.getAttribute('src');if(/^https?:\/\//i.test(src))continue;
+   const response=await fetch(src);if(!response.ok)throw new Error('JS');
    const script=document.createElement('script');script.textContent=(await response.text()).replaceAll('</script','<\/script');source.replaceWith(script);
   }
   for(const id of ['cloud-user','cloud-message','cloud-error','cloud-conflict-detail'])doc.querySelector('#'+id).textContent='';
@@ -615,6 +704,7 @@ document.addEventListener('click',async event=>{
  case 'delete-service':await deleteService();break;
  case 'show-calendar':showCalendar();break;
  case 'calendar-term':calendarTerm=b.dataset.term==='spring'?'spring':'fall';renderCalendar();break;
+ case 'attendance-upload':attendanceUploadCourseId=b.dataset.course;$('#attendance-file').click();break;
  case 'data':$('#data-dialog').showModal();break;
  case 'export-json':exportJSON();break;
  case 'export-csv':exportCSV();break;
@@ -636,6 +726,8 @@ document.addEventListener('change',event=>{
  else if(el.dataset.noteCheck){const n=data.notes.find(n=>n.id===el.dataset.noteCheck);if(n){n.done=el.checked;save();renderNotes();renderTodayReminders();}}
  else if(['bus-filter','bus-mode','bus-date'].includes(el.id))renderServices();
  else if(el.id==='bus-holiday'){if(el.checked)data.busHolidays[$('#bus-date').value]=true;else delete data.busHolidays[$('#bus-date').value];save();renderServices();}
+ else if(el.id==='attendance-file'){const file=el.files[0];if(file&&attendanceUploadCourseId)importAttendanceExcel(attendanceUploadCourseId,file).catch(error=>toast(error.message,true)).finally(()=>{el.value='';attendanceUploadCourseId=null;});}
+ else if(el.classList.contains('attendance-status'))setAttendanceStatus(el);
  else if(el.id==='import-file')importJSON(el.files[0]);
 });
 document.addEventListener('input',event=>{
@@ -670,10 +762,10 @@ function applyCloudData(next){
  if(focus){const target=$$('[data-progress]').find(x=>x.dataset.progress===focus.id);if(target){target.focus({preventScroll:true});target.setSelectionRange(Math.min(focus.start,target.value.length),Math.min(focus.end,target.value.length));}}
 }
 try{
- cloud=new window.TeachingCloud({getData:()=>clone(data),apply:applyCloudData,normalize:value=>C.normalizeBuses(value),guest:()=>clone(guestSnapshot),guestDirty:()=>guestWasDirty,confirm:confirmAction,download,notify:toast,isEditing:()=>!!document.querySelector('#course-dialog[open],#note-dialog[open],#service-dialog[open],#manage-dialog[open]')});
+ cloud=new window.TeachingCloud({getData:()=>clone(data),apply:applyCloudData,normalize:value=>C.normalizeBuses(value),guest:()=>clone(guestSnapshot),guestDirty:()=>guestWasDirty,confirm:confirmAction,download,notify:toast,isEditing:()=>!!document.querySelector('#course-dialog[open],#note-dialog[open],#service-dialog[open],#manage-dialog[open]')||document.activeElement?.classList?.contains('attendance-status')});
 }catch(error){$('#storage-banner').hidden=false;$('#storage-banner').textContent='同步组件未能启动，当前仅本机保存：'+error.message;}
 // Prevent edits while changing accounts / performing the initial cloud read.
-const writes=new Set(['add-course','add-course-week','add-course-slot','edit-record','edit-group','add-course-from-manage','delete-editing','add-note','edit-note','delete-note','complete-reminder','dismiss-reminder','add-service','edit-service','delete-service','import-json','reset','use-published','keep-local']);
+const writes=new Set(['add-course','add-course-week','add-course-slot','edit-record','edit-group','add-course-from-manage','delete-editing','add-note','edit-note','delete-note','complete-reminder','dismiss-reminder','attendance-upload','add-service','edit-service','delete-service','import-json','reset','use-published','keep-local']);
 document.addEventListener('click',event=>{
  if(cloud?.isLocked()&&(writes.has(event.target.closest('[data-action]')?.dataset.action)||event.target.matches('[data-note-check],#bus-holiday'))){event.preventDefault();event.stopImmediatePropagation();toast('请先完成云端读取，或在“账号与同步”中重试。',true);}
 },true);
