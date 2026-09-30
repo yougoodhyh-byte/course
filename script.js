@@ -91,6 +91,8 @@
     });
     if(!Array.isArray(data.notes)||!Array.isArray(data.buses)||!Array.isArray(data.services)) throw new Error('备份缺少事项或服务数据。');
     if(data.reminderDismissed!==undefined&&(Array.isArray(data.reminderDismissed)||data.reminderDismissed===null||typeof data.reminderDismissed!=='object')) throw new Error('提醒状态数据无效。');
+    if(data.attendance!==undefined&&(Array.isArray(data.attendance)||data.attendance===null||typeof data.attendance!=='object')) throw new Error('考勤数据格式无效。');
+    if(data.attendance?.courses!==undefined&&(Array.isArray(data.attendance.courses)||data.attendance.courses===null||typeof data.attendance.courses!=='object')) throw new Error('考勤课程数据格式无效。');
     if(data.notes.length>2000||data.buses.length>1000||data.services.length>1000) throw new Error('备份记录过多。');
     const noteIds=new Set();
     data.notes.forEach(n=>{
@@ -109,11 +111,30 @@
     data.buses.forEach(b=>{
       if(!b||!['id','departure','arrival','from','to','vehicles','note','type'].every(k=>str(b[k],1000))) throw new Error('校车数据无效。');
     });
+    if(data.attendance?.courses){
+      for(const [courseId,sheet] of Object.entries(data.attendance.courses)){
+        if(!ids.has(courseId)||!sheet||typeof sheet!=='object'||Array.isArray(sheet)||!Array.isArray(sheet.students)||sheet.students.length>2000||typeof sheet.marks!=='object'||sheet.marks===null||Array.isArray(sheet.marks))throw new Error('考勤课程数据无效。');
+        if(!str(sheet.filename||'',500)||!str(sheet.importedAt||'',80))throw new Error('考勤文件信息无效。');
+        const studentIds=new Set();
+        for(const st of sheet.students){
+          if(!st||!str(st.id,120)||!st.id||studentIds.has(st.id)||!str(st.name,120)||!st.name.trim()||!str(st.studentNo,120)||!st.studentNo.trim())throw new Error('学生信息无效。');
+          studentIds.add(st.id);
+        }
+        for(const [studentId,marks] of Object.entries(sheet.marks)){
+          if(!studentIds.has(studentId)||!marks||typeof marks!=='object'||Array.isArray(marks))throw new Error('考勤记录无效。');
+          for(const [date,value] of Object.entries(marks))if(!Number.isFinite(dayValue(date))||!['1','-1'].includes(String(value)))throw new Error('考勤状态无效。');
+        }
+      }
+    }
     return data;
   }
 
   function normalizeBuses(data){
     if(!data.busHolidays)data.busHolidays={};
+    if(!data.attendance)data.attendance={courses:{}};
+    if(!data.attendance.courses)data.attendance.courses={};
+    const courseIds=new Set((data.courses||[]).map(c=>c.id));
+    for(const courseId of Object.keys(data.attendance.courses))if(!courseIds.has(courseId))delete data.attendance.courses[courseId];
     if(data.academicCalendar!==undefined&&(data.academicCalendar===null||Array.isArray(data.academicCalendar)||typeof data.academicCalendar!=='object'))throw new Error('校历数据格式无效。');
     if(!data.reminderDismissed)data.reminderDismissed={};
     const reminderKeys=new Set((data.notes||[]).filter(n=>n&&typeof n.id==='string').map(n=>n.id+'|'+(n.date||'')));
@@ -180,7 +201,7 @@ let cloud=null, cloudRenderPending=false, guestSnapshot=null, guestWasDirty=fals
 const STORAGE_KEY='teaching-workspace:2026-fall:v1:'+location.pathname.replace(/index\.html$/,'');
 let data=clone(published), today=C.localISO(), selectedWeeks=new Set([C.defaultWeek(today)]), currentTab='schedule', courseFilter='', showEmpty=false, viewMode='grid', noteFilter='all', calendarTerm='fall';
 let dirty=false, publishedRevision=published.revision, cacheWriteFailed=false;
-let editingIds=[], editingBulk=false, editingNoteId=null, editingServiceId=null, managementGroups=[];
+let editingIds=[], editingBulk=false, editingNoteId=null, editingServiceId=null, managementGroups=[], attendanceUploadCourseId=null;
 let hasNewRelease=false;
 try{
  const saved=localStorage.getItem(STORAGE_KEY);
@@ -232,7 +253,7 @@ function showTab(tab){
  $$('.page-section').forEach(s=>s.hidden=s.id!=='section-'+currentTab);
  $$('[data-nav]').forEach(b=>{const active=b.dataset.nav===currentTab;b.classList.toggle('active',active);if(active)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
  $('#breadcrumb-current').textContent={schedule:'教学课程时间',notes:'重要事项',services:'其他服务'}[currentTab];
- if(currentTab==='notes')renderNotes();if(currentTab==='services')renderServices();
+ if(currentTab==='notes')renderNotes();if(currentTab==='services'){$$('.service-fold,.attendance-course').forEach(d=>d.open=false);renderServices();}
 }
 function renderClock(){
  const week=C.currentWeek(today),range=week?C.weekRange(week):null;
@@ -459,9 +480,12 @@ function renderServices(){
  $('#bus-holiday').checked=holiday;
  $('#bus-day-label').textContent=mode==='date'?(date+' · '+(weekday===0||weekday===6?'周末班次':'工作日班次')):mode==='weekday'?'周一至周五':'周六周日';
  $('#bus-count').textContent=buses.length+' 条发车记录';
+ $('#bus-fold-meta').textContent=buses.length?buses.length+'条':'';
+ $('#calendar-fold-meta').textContent=cal?.fall?.weeks&&cal?.spring?.weeks?(cal.fall.weeks+' + '+cal.spring.weeks+'周'):'';
  $('#bus-rule-summary').textContent=mode==='date'?'按原表筛选；条件增班及节假日运行情况请核对学校通知。':'含条件增班，适用范围见各行说明。';
  $('#bus-body').innerHTML=buses.length?buses.map(b=>`<tr data-bus-id="${esc(b.id)}" class="${b.extra?'extra-row':''}"><td class="bus-time">${esc(b.departure)}</td><td class="arrival-time">${esc(b.arrival||'未提供')}</td><td>${esc(b.from)} <span aria-hidden="true">→</span> ${esc(b.to)}</td><td>${esc(b.trip)}<small>${b.vehicles?esc(b.vehicles)+' 辆':'车辆数量未提供'}</small></td><td>${b.extra?'<span class="tag overdue">条件增班</span>':'<span class="tag subtle">常规</span>'}${b.note?`<small>${esc(b.note)}</small>`:''}</td></tr>`).join(''):'<tr><td class="bus-empty" colspan="5">该日期或方向没有符合原表范围的班次。</td></tr>';
  $('.custom-services').hidden=!data.services.length;
+ renderAttendance();
  $('#service-list').innerHTML=data.services.length?`<div class="service-links">${data.services.map(s=>`<article class="service-link"><span class="service-icon" style="width:33px;height:33px;border-radius:10px">${icon('link')}</span><button class="icon-button service-edit" data-action="edit-service" data-service="${esc(s.id)}" aria-label="编辑服务：${esc(s.title)}">${icon('edit')}</button><h3>${esc(s.title)}</h3>${s.description?`<p>${esc(s.description)}</p>`:''}${s.url?`<a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">打开服务 ${icon('arrow-up-right')}</a>`:''}</article>`).join('')}</div>`:'';
 }
 function openService(id=null){
