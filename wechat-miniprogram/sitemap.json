@@ -1,0 +1,1 @@
+{"desc":"教学工作台仅登录后使用","rules":[{"action":"disallow","page":"*"}]}
