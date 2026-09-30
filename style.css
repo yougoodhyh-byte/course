@@ -80,3 +80,26 @@ body.auth-locked{overflow:hidden;background:#f7f3fa}.access-gate{position:fixed;
 .attendance-status{width:54px;height:30px;border-radius:7px;border:1px solid #ddd1e4;text-align:center;text-align-last:center;background:#fff;color:#83718e;font:inherit;font-size:11px;cursor:pointer}.attendance-status.state-present{background:#eef6ff;border-color:#8eb7df;color:#28659d}.attendance-status.state-absent{background:#fff1f1;border-color:#e3aaaa;color:#ab4747}.attendance-status.state-neutral{background:#fff;color:#8f7d99}
 @media(max-width:650px){.service-fold>summary{padding:14px 13px;gap:10px}.service-fold-body{padding:11px}.service-fold-extra{display:none}.attendance-toolbar{align-items:flex-start;flex-direction:column}.attendance-toolbar .button{width:100%}.attendance-table .attendance-name{min-width:78px}.attendance-table .attendance-id{left:94px;min-width:112px}}
 @media print{.service-fold{border:0;box-shadow:none}.attendance-status{appearance:none}}
+
+/* Attendance enhancements: search, current teaching date, student deletion */
+.attendance-toolbar-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.attendance-search{display:flex;align-items:center}
+.attendance-search input{width:190px;height:34px;border:1px solid #ddd1e4;border-radius:8px;background:#fff;color:#332b38;padding:0 10px;font:inherit;font-size:10px;outline:none}
+.attendance-search input:focus{border-color:#9c7cad;box-shadow:0 0 0 2px rgba(156,124,173,.10)}
+.attendance-student-name{display:inline-block;max-width:68px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle}
+.attendance-student-delete{margin-left:5px;border:0;background:transparent;color:#b7aabb;cursor:pointer;font-size:13px;line-height:1;padding:3px 4px;border-radius:5px;opacity:.45;vertical-align:middle}
+.attendance-name:hover .attendance-student-delete,.attendance-student-delete:focus-visible{opacity:1;color:#c52f3f;background:#fff0f1;outline:none}
+.attendance-status.state-present,.attendance-status.state-absent{background:#fff;border-color:#efb5bb;color:#d22638;font-weight:700}
+.attendance-status.state-neutral{background:#fff;color:#111;border-color:#ddd1e4;font-weight:500}
+.attendance-table th.attendance-today-col{background:#fff7f7!important;color:#c82432!important;box-shadow:inset 2px 0 #df3342,inset -2px 0 #df3342,inset 0 2px #df3342}
+.attendance-table td.attendance-today-col{background:#fffafa;box-shadow:inset 2px 0 #df3342,inset -2px 0 #df3342}
+.attendance-table tbody tr:last-child td.attendance-today-col{box-shadow:inset 2px 0 #df3342,inset -2px 0 #df3342,inset 0 -2px #df3342}
+.attendance-course[data-has-today="1"]>summary{background:#fffafa}
+.attendance-course[data-has-today="1"]>summary strong{color:#c82432}
+@media(max-width:650px){
+ .attendance-toolbar-actions{width:100%;display:grid;grid-template-columns:1fr auto}
+ .attendance-search{min-width:0}
+ .attendance-search input{width:100%}
+ .attendance-student-delete{opacity:.8}
+ .attendance-student-name{max-width:48px}
+}
