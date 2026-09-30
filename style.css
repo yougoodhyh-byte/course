@@ -105,3 +105,16 @@ body.auth-locked{overflow:hidden;background:#f7f3fa}.access-gate{position:fixed;
  .attendance-student-name{max-width:48px}
 }
 
+
+/* Attendance export controls */
+.attendance-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}
+.attendance-head .attendance-help{padding:0;margin:0;flex:1}
+.attendance-export-all{flex:0 0 auto;white-space:nowrap}
+.attendance-export-all .icon,.attendance-toolbar-actions .button .icon{width:13px;height:13px;margin-right:4px}
+@media(max-width:650px){
+ .attendance-head{flex-direction:column}
+ .attendance-export-all{width:100%}
+ .attendance-toolbar-actions{grid-template-columns:1fr 1fr}
+ .attendance-toolbar-actions .attendance-search{grid-column:1/-1}
+ .attendance-toolbar-actions .button{width:100%}
+}
