@@ -3,6 +3,7 @@
    The main app remains usable offline and labels local-only mode honestly. */
 (function(root){
 'use strict';
+const ALLOWED_EMAIL='1661531189@qq.com';
 const copy=x=>x===undefined?undefined:JSON.parse(JSON.stringify(x));
 function stable(x){
  if(Array.isArray(x))return '['+x.map(stable).join(',')+']';
@@ -118,7 +119,8 @@ class TeachingCloud{
   this.$('#cloud-login-button').disabled=true;this.error='';this.render();
   try{
    this.remember=this.$('#cloud-remember').checked;
-   const s=await this.request('/auth/v1/token?grant_type=password',{method:'POST',authenticated:false,body:{email:this.$('#cloud-email').value.trim(),password:this.$('#cloud-password').value}});
+   const email=this.$('#cloud-email').value.trim().toLowerCase();if(email!==ALLOWED_EMAIL)throw new Error('仅允许指定账号登录。');
+   const s=await this.request('/auth/v1/token?grant_type=password',{method:'POST',authenticated:false,body:{email,password:this.$('#cloud-password').value}});
    this.$('#cloud-password').value='';await this.connect({...s,expires_at:s.expires_at||Math.floor(Date.now()/1000)+s.expires_in});
   }catch(e){this.error=/invalid|credentials|grant/i.test(e.message)?'邮箱或密码不正确，或该登录账号尚未创建/验证。':e.message;this.stage='error';this.render();}
   finally{this.$('#cloud-password').value='';this.$('#cloud-login-button').disabled=false;}
@@ -129,6 +131,7 @@ class TeachingCloud{
   return out.sort((a,b)=>(b.updatedAt||'').localeCompare(a.updatedAt||''));
  }
  async connect(session){
+  if((session?.user?.email||'').toLowerCase()!==ALLOWED_EMAIL){try{sessionStorage.removeItem(this.authKey());localStorage.removeItem(this.authKey());}catch{}this.session=null;this.user=null;this.ready=false;this.stage='local';this.error='仅允许指定账号登录。';this.render();return;}
   this.epoch++;this.session=session;this.user=session.user;this.ready=false;this.dirty=false;this.conflict=null;this.stage='loading';this.error='';this.message='';this.persistSession();
   this.base=null;this.version=0;
   let cached=readStorage(localStorage,this.cacheKey());
@@ -237,6 +240,7 @@ class TeachingCloud{
  backupConflict(){if(this.conflict)this.o.download('同步冲突备份.json',JSON.stringify({format:'teaching-conflict-backup',createdAt:new Date().toISOString(),local:this.conflict.local,cloud:this.conflict.remote},null,2),'application/json');}
  render(){
   const labels={local:this.config?'未登录 · 仅本机':'仅本机',loading:'读取云端',syncing:'同步中',synced:'已同步',pending:'待同步',conflict:'同步冲突',error:'同步失败',offline:'离线待同步',expired:'请重新登录',waiting:'尚未上传'};
+  const authorized=!!this.user&&this.ready&&(this.user.email||'').toLowerCase()===ALLOWED_EMAIL;const gate=this.$('#access-gate'),app=this.$('#protected-app');if(gate)gate.hidden=authorized;if(app)app.hidden=!authorized;document.body.classList.toggle('auth-locked',!authorized);const accessStatus=this.$('#access-status'),accessError=this.$('#access-error');if(accessStatus)accessStatus.textContent=this.user&&!this.ready?'正在验证账号并读取云端资料…':'请使用指定账号登录。';if(accessError){accessError.textContent=this.error||'';accessError.hidden=!this.error;}
   const el=this.$('#save-status');el.textContent=labels[this.stage]||'仅本机';el.classList.toggle('unsaved',['error','offline','expired','conflict'].includes(this.stage));el.title=this.user?(this.dirty?'有修改尚未写入云端。':'云端账号：'+this.user.email):'当前编辑只保存在本机。配置云端并登录后才能跨设备同步。';
   this.$('#cloud-entry').textContent=this.user?'账号与同步':'登录同步';
   this.$('#cloud-unconfigured').hidden=!!this.config;
@@ -250,6 +254,7 @@ class TeachingCloud{
   this.$('#cloud-migrate-button').disabled=!this.user||!this.ready;
  }
  bind(){
+  const accessForm=this.$('#access-login-form');if(accessForm)accessForm.addEventListener('submit',async e=>{e.preventDefault();const pass=this.$('#access-password');this.$('#cloud-email').value=ALLOWED_EMAIL;this.$('#cloud-password').value=pass.value;this.$('#cloud-remember').checked=!!this.$('#access-remember')?.checked;await this.login({preventDefault(){}});pass.value='';});
   this.$('#save-status').addEventListener('click',()=>{this.render();this.$('#cloud-dialog').showModal();});
   this.$('#cloud-login-form').addEventListener('submit',e=>this.login(e));
   this.$('#cloud-config-form').addEventListener('submit',async e=>{
