@@ -570,8 +570,10 @@ function renderAttendance(){
   }else table='<div class="attendance-empty">上传 Excel 后自动生成学生名单与考勤日期。</div>';
   const openAttr=openIds.has(course.id)?' open':'';
   html+='<details class="attendance-course" data-attendance-course="'+esc(course.id)+'" data-has-today="'+(hasToday?'1':'0')+'"'+openAttr+'><summary><span><strong>'+esc(display)+'</strong><small>'+fileInfo+(hasToday?' · 今天有课':'')+'</small></span><span class="service-fold-chevron">'+icon('chevron-down')+'</span></summary><div class="attendance-course-body">';
-  html+='<div class="attendance-toolbar"><div><strong>'+esc(display)+'</strong><small>'+dates.length+' 个上课日期 · “-”未登记，“1”到勤，“-1”缺勤</small></div><div class="attendance-toolbar-actions">'+(students.length?'<label class="attendance-search"><input type="search" value="'+esc(attendanceSearchQueries.get(course.id)||'')+'" placeholder="检索姓名或学号" data-attendance-search="'+esc(course.id)+'" autocomplete="off" aria-label="'+esc(display)+'检索学生"></label><button class="button small" data-action="attendance-export-course" data-course="'+esc(course.id)+'">'+icon('download')+'导出 Excel</button>':'')+'<button class="button small" data-action="attendance-upload" data-course="'+esc(course.id)+'">'+(students.length?'替换 Excel':'上传 Excel')+'</button></div></div>';
-  html+=table+'</div></details>';
+  html+='<div class="attendance-toolbar"><div><strong>'+esc(display)+'</strong><small>'+dates.length+' 个上课日期 · “-”未登记，“1”到勤，“-1”缺勤</small></div>'+(students.length?'<div class="attendance-toolbar-actions"><label class="attendance-search"><input type="search" value="'+esc(attendanceSearchQueries.get(course.id)||'')+'" placeholder="检索姓名或学号" data-attendance-search="'+esc(course.id)+'" autocomplete="off" aria-label="'+esc(display)+'检索学生"></label></div>':'')+'</div>';
+  html+=table;
+  html+='<div class="attendance-bottom-actions">'+(students.length?'<button class="button" data-action="attendance-export-course" data-course="'+esc(course.id)+'">'+icon('download')+'导出考勤</button>':'')+'<button class="button primary" data-action="attendance-upload" data-course="'+esc(course.id)+'">'+(students.length?'替换 Excel':'上传 Excel')+'</button></div>';
+  html+='</div></details>';
  }
  host.innerHTML=html;fillIcons();wireAttendanceAutoLocate(host);
 }
