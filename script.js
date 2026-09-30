@@ -113,9 +113,8 @@
   }
 
   function normalizeBuses(data){
-    const official=globalThis.TEACHING_BUSES;
-    if(official){data.buses=JSON.parse(JSON.stringify(official.rows));data.busVersion=official.version;}
     if(!data.busHolidays)data.busHolidays={};
+    if(data.academicCalendar!==undefined&&(data.academicCalendar===null||Array.isArray(data.academicCalendar)||typeof data.academicCalendar!=='object'))throw new Error('校历数据格式无效。');
     if(!data.reminderDismissed)data.reminderDismissed={};
     const reminderKeys=new Set((data.notes||[]).filter(n=>n&&typeof n.id==='string').map(n=>n.id+'|'+(n.date||'')));
     for(const key of Object.keys(data.reminderDismissed))if(!reminderKeys.has(key))delete data.reminderDismissed[key];
@@ -141,32 +140,6 @@
 (function(){
 'use strict';
 const C=window.TeachingCore;
-const ACADEMIC_CALENDAR={
- fall:{
-  key:'fall',name:'秋季学期',weekStart:'2026-09-07',weeks:20,range:'2026.09.07 — 2027.01.24',
-  events:[
-   {date:'2026.09.06 / 09.20',title:'学生注册',detail:'实践周有选课的学生9月6日注册；其他学生9月20日注册。',tone:'register'},
-   {date:'09.07 — 09.20',title:'实践周',detail:'第1—2周。',tone:'practice'},
-   {date:'09.21 — 2027.01.10',title:'教学周',detail:'第3—18周。',tone:'teaching'},
-   {date:'12.03 — 12.04',title:'校田径运动会',detail:'第13周周四、周五，举行校田径运动会，届时停课。',tone:'special'},
-   {date:'2027.01.11 — 01.22',title:'考试周',detail:'第19—20周。',tone:'exam'},
-   {date:'01.23 — 02.27',title:'寒假',detail:'学生寒假，共5周。',tone:'vacation'},
-   {date:'02.06',title:'春节',detail:'2027年春节。',tone:'holiday'}
-  ]
- },
- spring:{
-  key:'spring',name:'春季学期',weekStart:'2027-03-01',weeks:18,range:'2027.03.01 — 2027.07.04',
-  events:[
-   {date:'2027.02.28',title:'学生注册',detail:'春季学期学生注册。',tone:'register'},
-   {date:'03.01 — 06.20',title:'教学周',detail:'第1—16周。',tone:'teaching'},
-   {date:'06.21 — 07.02',title:'考试周',detail:'第17—18周。',tone:'exam'},
-   {date:'07.03 — 08.28',title:'暑假',detail:'学生暑假，共8周。',tone:'vacation'}
-  ]
- }
-};
-const EXAM_TIMES=[
- ['第一场','08:00','10:00'],['第二场','10:30','12:30'],['第三场','13:30','15:30'],['第四场','16:00','18:00'],['第五场','19:00','21:30']
-];
 const $=selector=>document.querySelector(selector);
 const $$=selector=>[...document.querySelectorAll(selector)];
 const esc=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
@@ -357,7 +330,7 @@ function renderBoards(){
  fillIcons();
 }
 function refreshSchedule(){renderClock();renderWeekControls();renderStats();renderBoards();}
-function refreshAll(){renderCourseMeta();refreshSchedule();renderTodayReminders();renderNotesCount();if(currentTab==='notes')renderNotes();if(currentTab==='services')renderServices();$('#update-banner').hidden=!hasNewRelease;fillIcons();}
+function refreshAll(){const semesterRange=$('#semester-range');if(semesterRange)semesterRange.textContent=data.term?.start&&data.term?.end?(data.term.start.replaceAll('-','.')+' — '+data.term.end.replaceAll('-','.')):'';renderCourseMeta();refreshSchedule();renderTodayReminders();renderNotesCount();if(currentTab==='notes')renderNotes();if(currentTab==='services')renderServices();$('#update-banner').hidden=!hasNewRelease;fillIcons();}
 function changeWeeks(weeks){selectedWeeks=new Set(weeks.filter(w=>w>=1&&w<=20));if(!selectedWeeks.size)selectedWeeks.add(C.defaultWeek(today));refreshSchedule();}
 function openCourse(rows=[],defaults={}){
  editingIds=rows.map(r=>r.id);editingBulk=rows.length>1;
@@ -466,46 +439,20 @@ async function deleteNote(){
 }
 function academicWeekRange(start,week){const from=C.addDays(start,(week-1)*7);return {start:from,end:C.addDays(from,6)};}
 function academicWeekFor(start,weeks,iso=today){const d=C.dayValue(iso),s=C.dayValue(start);if(!Number.isFinite(d)||d<s||d>s+weeks*7-1)return null;return Math.floor((d-s)/7)+1;}
-function defaultCalendarTerm(iso=today){return iso>='2027-02-28'?'spring':'fall';}
-function academicStatus(iso=today){
- if(iso==='2026-09-06')return '秋季学期 · 实践周选课学生注册';
- if(iso>='2026-09-07'&&iso<='2026-09-20'){const w=academicWeekFor('2026-09-07',20,iso);return `秋季学期 · 第${w}周 · 实践周`;}
- if(iso>='2026-09-21'&&iso<='2027-01-10'){const w=academicWeekFor('2026-09-07',20,iso);if(iso>='2026-12-03'&&iso<='2026-12-04')return `秋季学期 · 第${w}周 · 校田径运动会停课`;return `秋季学期 · 第${w}周 · 教学周`;}
- if(iso>='2027-01-11'&&iso<='2027-01-22'){const w=academicWeekFor('2026-09-07',20,iso);return `秋季学期 · 第${w}周 · 考试周`;}
- if(iso>='2027-01-23'&&iso<='2027-02-27')return iso==='2027-02-06'?'寒假 · 春节':'寒假 · 2027.01.23—02.27';
- if(iso==='2027-02-28')return '春季学期 · 学生注册';
- if(iso>='2027-03-01'&&iso<='2027-06-20'){const w=academicWeekFor('2027-03-01',18,iso);return `春季学期 · 第${w}周 · 教学周`;}
- if(iso>='2027-06-21'&&iso<='2027-07-02'){const w=academicWeekFor('2027-03-01',18,iso);return `春季学期 · 第${w}周 · 考试周`;}
- if(iso>='2027-07-03'&&iso<='2027-08-28')return '暑假 · 2027.07.03—08.28';
- return '2026—2027 学年校历';
-}
-function calendarPhase(term,week){
- if(term==='fall')return week<=2?'实践周':week<=18?'教学周':'考试周';
- return week<=16?'教学周':'考试周';
-}
-function calendarSpecial(term,week){
- if(term==='fall'&&week===13)return '12月3—4日（周四、周五）校田径运动会，停课';
- if(term==='fall'&&week===20)return '考试至1月22日；1月23日起寒假';
- if(term==='spring'&&week===18)return '考试至7月2日；7月3日起暑假';
- return '';
-}
+function calendarData(){return data.academicCalendar||null;}
+function defaultCalendarTerm(iso=today){const cal=calendarData();if(cal?.spring?.periods?.some(p=>iso>=p.start&&iso<=p.end))return 'spring';return 'fall';}
+function academicStatus(iso=today){const cal=calendarData();if(!cal)return '';const hits=[];for(const key of ['fall','spring']){const term=cal[key];for(const p of term?.periods||[])if(iso>=p.start&&iso<=p.end)hits.push({term,label:p.label,priority:Number(p.priority||0)});}hits.sort((x,y)=>y.priority-x.priority);if(!hits.length)return cal.title||'学年校历';const hit=hits[0],w=academicWeekFor(hit.term.weekStart,hit.term.weeks,iso);return [hit.term.name,w?('第'+w+'周'):null,hit.label].filter(Boolean).join(' · ');}
+function calendarPhase(term,week){return (term.weekPhases||[]).find(p=>week>=Number(p.from)&&week<=Number(p.to))?.label||'';}
+function calendarSpecial(term,week){return term.weekNotes?.[String(week)]||'';}
 function formatCalendarDate(iso){return iso.replaceAll('-','.');}
-function renderCalendar(){
- const term=ACADEMIC_CALENDAR[calendarTerm]||ACADEMIC_CALENDAR.fall,currentWeek=academicWeekFor(term.weekStart,term.weeks,today);
- $$('#calendar-term-switch button').forEach(b=>{const active=b.dataset.term===term.key;b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active));});
- $('#calendar-term-range').textContent=term.key==='fall'?term.range+' · 寒假至 2027.02.27':term.range+' · 暑假 2027.07.03—08.28';
- $('#calendar-week-note').textContent=term.key==='fall'?'第1—2周实践，第3—18周教学，第19—20周考试。':'第1—16周教学，第17—18周考试。';
- $('#calendar-events').innerHTML=term.events.map(e=>`<article class="calendar-event ${esc(e.tone)}"><span>${esc(e.date)}</span><div><strong>${esc(e.title)}</strong><p>${esc(e.detail)}</p></div></article>`).join('');
- $('#calendar-weeks').innerHTML=Array.from({length:term.weeks},(_,i)=>{const w=i+1,r=academicWeekRange(term.weekStart,w),phase=calendarPhase(term.key,w),special=calendarSpecial(term.key,w);return `<div class="calendar-week${currentWeek===w?' is-current':''}"><div class="calendar-week-top"><strong>第${w}周</strong><span class="calendar-phase phase-${phase==='实践周'?'practice':phase==='教学周'?'teaching':'exam'}">${phase}</span></div><p>${formatCalendarDate(r.start)} — ${formatCalendarDate(r.end)}</p>${special?`<small>${esc(special)}</small>`:''}${currentWeek===w?'<span class="calendar-now">当前</span>':''}</div>`;}).join('');
- $('#calendar-class-times').innerHTML=C.TIMES.map(p=>`<div><strong>${esc(p.code)}</strong><span>${esc(p.start)}–${esc(p.end)}</span></div>`).join('');
- $('#calendar-exam-times').innerHTML=EXAM_TIMES.map(([name,start,end])=>`<div><strong>${esc(name)}</strong><span>${start}–${end}</span></div>`).join('');
-}
+function renderCalendar(){const cal=calendarData();if(!cal){toast('校历尚未从云端载入。',true);return;}const term=cal[calendarTerm]||cal.fall,currentWeek=academicWeekFor(term.weekStart,term.weeks,today);$('#calendar-title').textContent=cal.title||'学年校历';$$('#calendar-term-switch button').forEach(b=>{const active=b.dataset.term===calendarTerm;b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active));});$('#calendar-term-range').textContent=term.range||'';$('#calendar-week-note').textContent=(term.weekPhases||[]).map(p=>`第${p.from===p.to?p.from:p.from+'—'+p.to}周${p.label}`).join('，')+'。';$('#calendar-events').innerHTML=(term.events||[]).map(e=>`<article class="calendar-event ${esc(e.tone||'')}"><span>${esc(e.date||'')}</span><div><strong>${esc(e.title||'')}</strong><p>${esc(e.detail||'')}</p></div></article>`).join('');$('#calendar-weeks').innerHTML=Array.from({length:Number(term.weeks||0)},(_,i)=>{const w=i+1,r=academicWeekRange(term.weekStart,w),phase=calendarPhase(term,w),special=calendarSpecial(term,w),phaseClass=phase.includes('实践')?'practice':phase.includes('考试')?'exam':'teaching';return `<div class="calendar-week${currentWeek===w?' is-current':''}"><div class="calendar-week-top"><strong>第${w}周</strong><span class="calendar-phase phase-${phaseClass}">${esc(phase)}</span></div><p>${formatCalendarDate(r.start)} — ${formatCalendarDate(r.end)}</p>${special?`<small>${esc(special)}</small>`:''}${currentWeek===w?'<span class="calendar-now">当前</span>':''}</div>`;}).join('');$('#calendar-class-times').innerHTML=C.TIMES.map(p=>`<div><strong>${esc(p.code)}</strong><span>${esc(p.start)}–${esc(p.end)}</span></div>`).join('');$('#calendar-exam-times').innerHTML=(cal.examTimes||[]).map(([name,start,end])=>`<div><strong>${esc(name)}</strong><span>${esc(start)}–${esc(end)}</span></div>`).join('');}
 function renderServices(){
- $('#calendar-current-summary').textContent=academicStatus(today);
+ const cal=calendarData();$('#calendar-service-title').textContent=cal?.title||'学年校历';$('#calendar-current-summary').textContent=academicStatus(today);$('#calendar-fall-meta').textContent=cal?.fall?.weeks?('秋季 '+cal.fall.weeks+' 周'):'';$('#calendar-spring-meta').textContent=cal?.spring?.weeks?('春季 '+cal.spring.weeks+' 周'):'';
+ const stops=[...new Set(data.buses.flatMap(b=>[b.from,b.to]).filter(Boolean))],outStop=stops[0]||'',backStop=stops[1]||'';$('#bus-route-summary').textContent=outStop&&backStop?(outStop+' ⇄ '+backStop):'';const outOpt=$('#bus-filter option[value="out"]'),backOpt=$('#bus-filter option[value="back"]');if(outOpt)outOpt.textContent=outStop&&backStop?(outStop+' → '+backStop):'去程';if(backOpt)backOpt.textContent=outStop&&backStop?(backStop+' → '+outStop):'返程';
  const direction=$('#bus-filter').value,mode=$('#bus-mode').value;
  if(!$('#bus-date').value)$('#bus-date').value=today;
  const date=$('#bus-date').value,holiday=!!data.busHolidays?.[date];
- const buses=C.busesFor(data.buses,date,mode,holiday).filter(b=>direction==='all'||(direction==='out'?b.from.includes('桑浦山'):b.from.includes('东海岸'))).sort((a,b)=>a.departure.localeCompare(b.departure)||a.order-b.order);
+ const buses=C.busesFor(data.buses,date,mode,holiday).filter(b=>direction==='all'||(direction==='out'?b.from===outStop:b.from===backStop)).sort((a,b)=>a.departure.localeCompare(b.departure)||a.order-b.order);
  const weekday=Number.isFinite(C.dayValue(date))?new Date(C.dayValue(date)*86400000).getUTCDay():null;
  $('#bus-date-label').hidden=mode!=='date';
  $('#bus-holiday-control').hidden=mode!=='date'||weekday!==3||date<'2026-09-21'||date>'2027-01-10';
@@ -574,13 +521,6 @@ async function exportHTML(){
   for(const id of ['cloud-user','cloud-message','cloud-error','cloud-conflict-detail'])doc.querySelector('#'+id).textContent='';
   doc.querySelector('#cloud-entry').textContent='登录同步';
   doc.querySelector('#cloud-account').hidden=true;doc.querySelector('#cloud-conflict').hidden=true;
-  // Embed the source timetable too, so a single-file release has no broken PDF link.
-  if(!doc.querySelector('#shuttle-pdf-data')){
-   const response=await fetch('./assets/shuttle-20260907.pdf');if(!response.ok)throw new Error('PDF');
-   const bytes=new Uint8Array(await response.arrayBuffer());let binary='';bytes.forEach(b=>binary+=String.fromCharCode(b));
-   const source=document.createElement('script');source.id='shuttle-pdf-data';source.type='application/json';source.textContent=JSON.stringify({base64:btoa(binary)});doc.querySelector('body').append(source);
-  }
-  const pdfLink=doc.querySelector('.bus-rules a');if(pdfLink)pdfLink.setAttribute('href','./assets/shuttle-20260907.pdf');
  }catch(error){toast('生成失败：请在线打开网站后重试。'+error.message,true);return;}
  download('index.html','<!DOCTYPE html>\n'+doc.outerHTML,'text/html;charset=utf-8');toast('index.html 已生成；上传并替换仓库首页即可发布。');
 }
@@ -715,11 +655,6 @@ document.addEventListener('click',event=>{
 },true);
 document.addEventListener('beforeinput',event=>{if(cloud?.isLocked()&&event.target.dataset.progress){event.preventDefault();toast('正在读取云端，请稍后输入。',true);}},true);
 document.addEventListener('focusout',()=>{if(cloudRenderPending)setTimeout(()=>{if(!document.activeElement?.dataset?.progress){cloudRenderPending=false;refreshAll();}},0);});
-function preparePDF(){
- const embedded=$('#shuttle-pdf-data');if(!embedded)return;
- try{const raw=atob(JSON.parse(embedded.textContent).base64),bytes=Uint8Array.from(raw,c=>c.charCodeAt(0));$('.bus-rules a').href=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));}catch{}
-}
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',preparePDF,{once:true});else preparePDF();
 // Exposed narrow interface for deterministic regression tests / local backups only.
 window.TeachingApp={getData:()=>clone(data),core:C};
 })();
