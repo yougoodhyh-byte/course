@@ -1056,6 +1056,73 @@ setInterval(()=>{if(currentTab==='services'&&$('#attendance-fold')?.open)updateA
 refreshAll();showTab(['notes','services'].includes(location.hash.slice(1))?location.hash.slice(1):'schedule');
 if(!hasNewRelease&&!legacyReadFailed)save(dirty?'已读取本机修改':'已载入课表',false);
 
+
+function draftMap(items){return new Map((Array.isArray(items)?items:[]).filter(x=>x&&typeof x.id==='string').map(x=>[x.id,x]));}
+function draftSame(a,b){return JSON.stringify(a)===JSON.stringify(b);}
+function describeDraftChanges(base,local){
+ const lines=[],push=x=>{if(x&&lines.length<36)lines.push(x);};
+ const courseName=(snap,id)=>snap?.courses?.find(c=>c.id===id)?.name||'未命名课程';
+ const bCourses=draftMap(base?.courses),lCourses=draftMap(local?.courses);
+ for(const [id,v] of lCourses)if(!bCourses.has(id))push('新增课程：'+v.name);
+ for(const [id,v] of bCourses)if(!lCourses.has(id))push('删除课程：'+v.name);
+ for(const [id,v] of lCourses){const old=bCourses.get(id);if(old&&old.name!==v.name)push('课程名称：'+old.name+' → '+v.name);}
+ const bRecords=draftMap(base?.records),lRecords=draftMap(local?.records);
+ let addedRecords=0,removedRecords=0,changedRecords=0;
+ for(const [id,v] of lRecords){const old=bRecords.get(id);if(!old)addedRecords++;else if(!draftSame(old,v))changedRecords++;}
+ for(const id of bRecords.keys())if(!lRecords.has(id))removedRecords++;
+ if(addedRecords)push('课程安排：新增 '+addedRecords+' 节');
+ if(changedRecords)push('课程安排：修改 '+changedRecords+' 节');
+ if(removedRecords)push('课程安排：删除 '+removedRecords+' 节');
+ const bNotes=draftMap(base?.notes),lNotes=draftMap(local?.notes);
+ for(const [id,v] of lNotes){const old=bNotes.get(id);if(!old)push('新增重要事项：'+v.title);else if(!draftSame(old,v))push('修改重要事项：'+v.title);}
+ for(const [id,v] of bNotes)if(!lNotes.has(id))push('删除重要事项：'+v.title);
+ const bServices=draftMap(base?.services),lServices=draftMap(local?.services);
+ for(const [id,v] of lServices){const old=bServices.get(id);if(!old)push('新增服务：'+v.title);else if(!draftSame(old,v))push('修改服务：'+v.title);}
+ for(const [id,v] of bServices)if(!lServices.has(id))push('删除服务：'+v.title);
+ const courseIds=new Set([...Object.keys(base?.attendance?.courses||{}),...Object.keys(local?.attendance?.courses||{})]);
+ for(const courseId of courseIds){
+  const bs=base?.attendance?.courses?.[courseId]||{students:[],marks:{}};
+  const ls=local?.attendance?.courses?.[courseId]||{students:[],marks:{}};
+  const bn=draftMap(bs.students),ln=draftMap(ls.students),cn=courseName(local,courseId)||courseName(base,courseId);
+  let add=0,del=0,edit=0,marks=0;
+  for(const [id,v] of ln){const old=bn.get(id);if(!old)add++;else if(old.name!==v.name||old.studentNo!==v.studentNo)edit++;}
+  for(const id of bn.keys())if(!ln.has(id))del++;
+  const studentIds=new Set([...Object.keys(bs.marks||{}),...Object.keys(ls.marks||{})]);
+  for(const sid of studentIds){
+   const dates=new Set([...Object.keys(bs.marks?.[sid]||{}),...Object.keys(ls.marks?.[sid]||{})]);
+   for(const date of dates)if(String(bs.marks?.[sid]?.[date]||'-')!==String(ls.marks?.[sid]?.[date]||'-'))marks++;
+  }
+  if(add)push('学生信息 · '+cn+'：新增 '+add+' 人');
+  if(edit)push('学生信息 · '+cn+'：修改 '+edit+' 人的姓名或学号');
+  if(del)push('学生信息 · '+cn+'：删除 '+del+' 人');
+  if(marks)push('考勤记录 · '+cn+'：修改 '+marks+' 项');
+ }
+ const interactionIds=new Set([...Object.keys(base?.attendance?.interactions||{}),...Object.keys(local?.attendance?.interactions||{})]);
+ for(const courseId of interactionIds){
+  const b=base?.attendance?.interactions?.[courseId]||{},l=local?.attendance?.interactions?.[courseId]||{};
+  let added=0;for(const date of Object.keys(l)){const before=new Set(b[date]||[]);for(const id of l[date]||[])if(!before.has(id))added++;}
+  if(added)push('课堂互动 · '+courseName(local,courseId)+'：新增 '+added+' 次抽取记录');
+ }
+ if(!draftSame(base?.busHolidays,local?.busHolidays))push('校车节假日标记有修改');
+ if(!draftSame(base?.academicCalendar,local?.academicCalendar))push('校历内容有修改');
+ if(!draftSame(base?.buses,local?.buses))push('校车时刻数据有修改');
+ if(!lines.length&&!draftSame(base,local))push('网站数据有其他本机修改');
+ return lines;
+}
+function reviewOfflineDraft({base,local,updatedAt}){
+ const dlg=$('#offline-draft-dialog'),box=$('#offline-draft-summary'),time=$('#offline-draft-time');
+ const lines=describeDraftChanges(base,local);
+ if(time)time.textContent='网络已恢复。草稿最近保存于 '+(updatedAt?new Date(updatedAt).toLocaleString('zh-CN'):'刚刚')+'。';
+ if(box)box.innerHTML=lines.length?'<ul>'+lines.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>':'<div class="offline-draft-empty">检测到离线草稿，请选择如何处理。</div>';
+ dlg.returnValue='';
+ dlg.showModal();
+ return new Promise(resolve=>{
+  const onCancel=e=>{e.preventDefault();dlg.close('keep');};
+  dlg.addEventListener('cancel',onCancel,{once:true});
+  dlg.addEventListener('close',()=>{dlg.removeEventListener('cancel',onCancel);resolve(['sync','discard'].includes(dlg.returnValue)?dlg.returnValue:'keep');},{once:true});
+ });
+}
+
 function applyCloudData(next){
  const normalized=C.normalizeBuses(clone(next));
  if(JSON.stringify(data)===JSON.stringify(normalized))return;
@@ -1064,7 +1131,7 @@ function applyCloudData(next){
  if(focus){const target=$$('[data-progress]').find(x=>x.dataset.progress===focus.id);if(target){target.focus({preventScroll:true});target.setSelectionRange(Math.min(focus.start,target.value.length),Math.min(focus.end,target.value.length));}}
 }
 try{
- cloud=new window.TeachingCloud({getData:()=>clone(data),apply:applyCloudData,normalize:value=>C.normalizeBuses(value),guest:()=>clone(guestSnapshot),guestDirty:()=>guestWasDirty,confirm:confirmAction,download,notify:toast,afterTransientLogin:()=>{showTab('services');$$('.service-fold,.attendance-course').forEach(d=>d.open=false);},isEditing:()=>!!document.querySelector('#course-dialog[open],#note-dialog[open],#service-dialog[open],#manage-dialog[open],#attendance-student-dialog[open]')||document.activeElement?.classList?.contains('attendance-status')});
+ cloud=new window.TeachingCloud({getData:()=>clone(data),apply:applyCloudData,normalize:value=>C.normalizeBuses(value),guest:()=>clone(guestSnapshot),guestDirty:()=>guestWasDirty,confirm:confirmAction,reviewDraft:reviewOfflineDraft,download,notify:toast,afterTransientLogin:()=>{showTab('services');$('.service-fold,.attendance-course').forEach(d=>d.open=false);},isEditing:()=>!!document.querySelector('#course-dialog[open],#note-dialog[open],#service-dialog[open],#manage-dialog[open],#attendance-student-dialog[open],#offline-draft-dialog[open]')||document.activeElement?.classList?.contains('attendance-status')});
 }catch(error){$('#storage-banner').hidden=false;$('#storage-banner').textContent='同步组件未能启动，当前仅本机保存：'+error.message;}
 // Prevent edits while changing accounts / performing the initial cloud read.
 const writes=new Set(['add-course','add-course-week','add-course-slot','edit-record','edit-group','add-course-from-manage','delete-editing','add-note','edit-note','delete-note','complete-reminder','dismiss-reminder','attendance-upload','attendance-edit-student','attendance-delete-student','add-service','edit-service','delete-service','import-json','reset','use-published','keep-local']);
