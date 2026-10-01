@@ -1,6 +1,8 @@
 {
   "description": "教学工作台微信小程序",
-  "packOptions": {"ignore": []},
+  "packOptions": {
+    "ignore": []
+  },
   "setting": {
     "urlCheck": true,
     "es6": true,
@@ -11,7 +13,7 @@
   },
   "compileType": "miniprogram",
   "libVersion": "3.7.12",
-  "appid": "touristappid",
+  "appid": "wx5f60425c0177c100",
   "projectname": "教学工作台",
   "miniprogramRoot": "./"
 }
