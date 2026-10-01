@@ -305,3 +305,32 @@ body.auth-locked{overflow:hidden;background:#f7f3fa}.access-gate{position:fixed;
   .attendance-random-notice{font-size:36px}
 }
 @media print{.attendance-random-notice{display:none!important}}
+
+
+/* WeChat single-identity QR authentication */
+.access-auth-loading{padding:22px 0;color:#927fa0;font-size:12px;text-align:center}
+.wechat-login-panel{display:flex;flex-direction:column;align-items:center;gap:10px;margin-top:14px}
+.wechat-qr-wrap{width:244px;height:244px;display:grid;place-items:center;padding:12px;border:1px solid #e5dced;border-radius:18px;background:#fff;box-shadow:0 12px 30px rgba(74,54,92,.08)}
+.wechat-qr{width:220px;height:220px;display:grid;place-items:center}
+.wechat-qr img,.wechat-qr canvas{display:block!important;margin:auto}
+.wechat-login-title{font-size:15px;color:#4e4058;margin-top:2px}
+.wechat-login-hint{font-size:10px!important;color:#9d8aa8!important;margin:0!important}
+.wechat-login-actions{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:2px}
+.wechat-login-panel .access-remember{margin-top:2px}
+.wechat-login-panel .access-status{min-height:18px;margin-top:0}
+.wechat-login-panel .access-status.error{color:#b83d50}
+.wechat-qr-fallback{font-size:11px;color:#907b9e;line-height:1.7;padding:18px;text-align:center}
+.wechat-bind-section,.wechat-bound-section,.wechat-setup-section{margin-top:16px;padding:14px;border:1px solid #eadff0;border-radius:12px;background:#fbf8fd}
+.wechat-bind-section>strong,.wechat-bound-section>strong,.wechat-setup-section>strong{font-size:12px;color:#685677}
+.wechat-bind-section .button{margin-top:8px}
+.wechat-bind-qr{width:220px;min-height:0;margin:12px auto 0;display:grid;place-items:center}
+.wechat-bind-qr:not(:empty){min-height:220px;padding:10px;border:1px solid #e6dced;border-radius:14px;background:#fff}
+.wechat-bind-qr img,.wechat-bind-qr canvas{display:block!important;margin:auto}
+#wechat-bind-open{display:flex;width:max-content;margin:10px auto 0}
+@media(max-width:550px){
+ .wechat-qr-wrap{width:224px;height:224px}
+ .wechat-qr{width:200px;height:200px}
+ .wechat-qr img,.wechat-qr canvas{max-width:200px!important;max-height:200px!important}
+ .wechat-login-actions{width:100%}
+ .wechat-login-actions .button{flex:1}
+}
