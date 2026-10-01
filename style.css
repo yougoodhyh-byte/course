@@ -367,3 +367,111 @@ body.auth-locked{overflow:hidden;background:#f7f3fa}.access-gate{position:fixed;
  .offline-draft-actions .button{width:100%}
  .offline-draft-actions .button.primary{grid-column:1/-1;grid-row:1}
 }
+
+
+/* Global typography clarity: stronger contrast without changing the layout/theme. */
+:root{
+  --ink:#1f2030;
+  --muted:#666676;
+}
+html{
+  text-rendering:optimizeLegibility;
+  font-synthesis:none;
+}
+body{
+  color:var(--ink);
+  font-weight:400;
+}
+button,input,select,textarea,summary{
+  color:#292838;
+}
+h1,h2,h3,strong{
+  color:#1d1e2d;
+}
+h1{font-weight:760}
+h2{font-weight:700}
+h3{font-weight:650}
+
+.brand strong{font-weight:750;color:#202131}
+.side-label{color:#7a7786;font-weight:600}
+.nav-item{color:#666474;font-weight:500}
+.nav-item.active{font-weight:700}
+.mini-label{color:#767181;font-weight:550}
+.semester-mini p{color:#736e80;font-size:10px;font-weight:500}
+.side-data{color:#605d6d;font-weight:500}
+.side-foot{color:#7b7787}
+.sidebar-date{color:#6e6b7b!important;font-weight:550!important}
+
+.breadcrumb{color:#777383;font-weight:500}
+.breadcrumb strong{color:#454354;font-weight:650}
+.save-state{color:#686574;font-weight:550}
+.subtitle{color:#666676;font-weight:450}
+.eyebrow{color:#766d91;font-weight:700}
+
+.button{color:#343242;font-weight:600}
+.button.small{font-weight:600}
+.icon-button{color:#716d7e}
+
+.stat-label{color:#716c7f;font-weight:600}
+.stat-detail{color:#777182;font-size:10px;font-weight:500}
+.stat-value small{color:#716b7c;font-weight:500}
+.stat-side{color:#73679d;font-weight:600}
+
+.service-fold>summary,
+.attendance-course>summary{
+  color:#343142;
+}
+.service-fold>summary small,
+.attendance-course>summary small{
+  color:#756f80;
+  font-weight:500;
+}
+.service-fold-body,
+.attendance-course-body{
+  color:#343242;
+}
+
+.hint,
+.form-hint,
+.note-content small,
+.manage-item p,
+.calendar-dialog-subtitle,
+.calendar-source-note,
+.attendance-toolbar small,
+.attendance-random-result small,
+.attendance-query-placeholder,
+.offline-draft-subtitle,
+.offline-draft-notice p{
+  color:#716b7b;
+  font-weight:500;
+}
+
+.attendance-table,
+.bus-table,
+.calendar-time-list{
+  color:#2c2b3a;
+}
+.attendance-table thead th,
+.bus-table thead th{
+  color:#5f596c;
+  font-weight:650;
+}
+.attendance-date small{color:#746d80;font-weight:500}
+.attendance-status.state-neutral{color:#252435;font-weight:600}
+
+input,select,textarea{
+  color:#252435;
+  font-weight:500;
+}
+input::placeholder,textarea::placeholder{
+  color:#8a8494;
+  opacity:1;
+}
+
+.tag{font-weight:600}
+.tag.subtle{color:#716a7e}
+
+@media(max-width:650px){
+  body{font-weight:400}
+  .nav-item,.button,.side-data{font-weight:600}
+}
