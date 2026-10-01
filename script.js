@@ -234,7 +234,7 @@ function attendanceRandomNotice(name){
  el.className='attendance-random-notice';
  el.setAttribute('role','status');
  el.setAttribute('aria-live','polite');
- el.textContent=name+(rareNamePronunciationText(name)?' · '+rareNamePronunciationText(name):'');
+ el.textContent=name;const pronunciation=rareNamePronunciationText(name);if(pronunciation)el.dataset.pronunciation=pronunciation;
  document.body.append(el);
  requestAnimationFrame(()=>el.classList.add('show'));
  setTimeout(()=>{el.classList.remove('show');setTimeout(()=>el.remove(),220);},3000);
