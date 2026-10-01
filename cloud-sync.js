@@ -75,13 +75,20 @@ class TeachingCloud{
  isLocked(){return !!this.user&&!this.ready;}
  async restore(){
   if(!this.config)return;
-  const s=readStorage(sessionStorage,this.authKey())||readStorage(localStorage,this.authKey());
-  if(s?.access_token&&s?.refresh_token&&s?.user?.id){this.remember=!!readStorage(localStorage,this.authKey());await this.connect(s);}
+  // “保持登录”未勾选时，登录状态只存在页面内存中；刷新后必须重新登录。
+  try{sessionStorage.removeItem(this.authKey());}catch{}
+  const s=readStorage(localStorage,this.authKey());
+  if(s?.access_token&&s?.refresh_token&&s?.user?.id){this.remember=true;await this.connect(s);}
  }
  persistSession(){
   if(!this.session)return;
   const s={access_token:this.session.access_token,refresh_token:this.session.refresh_token,expires_at:this.session.expires_at,user:{id:this.session.user.id,email:this.session.user.email}};
-  try{(this.remember?localStorage:sessionStorage).setItem(this.authKey(),JSON.stringify(s));(this.remember?sessionStorage:localStorage).removeItem(this.authKey());}catch{this.message='浏览器无法保存登录状态，关闭后需重新登录。';}
+  try{
+   // 只有明确勾选“保持登录”才持久保存；否则只保留当前页面内存中的 this.session。
+   sessionStorage.removeItem(this.authKey());
+   if(this.remember)localStorage.setItem(this.authKey(),JSON.stringify(s));
+   else localStorage.removeItem(this.authKey());
+  }catch{this.message=this.remember?'浏览器无法保存登录状态，关闭或刷新后需重新登录。':'当前为一次性登录，刷新后需重新登录。';}
  }
  async request(path,{method='GET',body,authenticated=true,retry=true}={}){
   if(!this.config)throw new Error('云端尚未配置。');
