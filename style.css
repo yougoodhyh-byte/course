@@ -239,3 +239,18 @@ body.auth-locked{overflow:hidden;background:#f7f3fa}.access-gate{position:fixed;
     min-width:96px;
   }
 }
+
+
+/* Attendance student identity editing */
+.attendance-student-actions{display:inline-flex;align-items:center;gap:2px;margin-left:5px;vertical-align:middle}
+.attendance-student-edit,.attendance-student-delete{border:0;background:transparent;cursor:pointer;line-height:1;border-radius:5px;vertical-align:middle}
+.attendance-student-edit{padding:3px;color:#9b88a5;opacity:.5}
+.attendance-student-edit .icon{width:12px;height:12px}
+.attendance-student-delete{margin-left:0}
+.attendance-name:hover .attendance-student-edit,.attendance-student-edit:focus-visible{opacity:1;color:#6956d9;background:#f2eefc;outline:none}
+.attendance-student-dialog-note{margin:4px 0 0;color:#9b88a5;font-size:10px}
+#attendance-student-dialog .form-grid{grid-template-columns:1fr 1fr}
+@media(max-width:550px){
+ #attendance-student-dialog .form-grid{grid-template-columns:1fr}
+ .attendance-student-edit{opacity:.8}
+}
