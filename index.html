@@ -56,6 +56,17 @@
 <section class="page-section" hidden="" id="section-services">
 <div class="page-heading"><div><h1>其他服务</h1></div></div>
 
+<details class="service-fold" id="attendance-fold">
+<summary><span class="service-fold-icon" data-icon="checklist"></span><span class="service-fold-title"><strong>考勤表</strong><small>微观经济学、数字经济专业认知、计量经济学</small></span><span class="service-fold-extra" id="attendance-fold-meta"></span><span class="service-fold-chevron" data-icon="chevron-down"></span></summary>
+<div class="service-fold-body attendance-service-body">
+<div class="attendance-head"><div class="attendance-help">Excel 首张工作表需包含“姓名”和“学号”两列。原 Excel 文件不保存，只同步提取后的学生名单和考勤状态。</div><label class="attendance-multi-open"><input id="attendance-multi-open" type="checkbox">多课程展开</label></div>
+<div id="attendance-courses"></div>
+<div class="attendance-export-all-row"><button class="button attendance-export-all" data-action="attendance-export-all"><span data-icon="download"></span>导出全部考勤</button></div>
+<input id="attendance-file" type="file" accept=".xlsx,.xls,.xlsb" hidden>
+</div>
+</details>
+
+
 <details class="service-fold" id="bus-fold">
 <summary><span class="service-fold-icon" data-icon="bus"></span><span class="service-fold-title"><strong>校车时刻表</strong><small id="bus-route-summary"></small></span><span class="service-fold-extra" id="bus-fold-meta"></span><span class="service-fold-chevron" data-icon="chevron-down"></span></summary>
 <div class="service-fold-body">
@@ -65,16 +76,6 @@
 <div class="table-scroll"><table class="bus-table"><thead><tr><th>发车</th><th>预计到达</th><th>行驶方向</th><th>车次 / 数量</th><th>适用说明</th></tr></thead><tbody id="bus-body"></tbody></table></div>
 <details class="bus-rules"><summary>运行说明</summary><p>具体班次、方向与适用说明以登录后载入的云端资料为准。</p></details>
 </section>
-</div>
-</details>
-
-<details class="service-fold" id="attendance-fold">
-<summary><span class="service-fold-icon" data-icon="checklist"></span><span class="service-fold-title"><strong>考勤表</strong><small>计量经济学、数字经济专业认知、微观经济学</small></span><span class="service-fold-extra" id="attendance-fold-meta"></span><span class="service-fold-chevron" data-icon="chevron-down"></span></summary>
-<div class="service-fold-body attendance-service-body">
-<div class="attendance-head"><div class="attendance-help">Excel 首张工作表需包含“姓名”和“学号”两列。原 Excel 文件不保存，只同步提取后的学生名单和考勤状态。</div><label class="attendance-multi-open"><input id="attendance-multi-open" type="checkbox">多课程展开</label></div>
-<div id="attendance-courses"></div>
-<div class="attendance-export-all-row"><button class="button attendance-export-all" data-action="attendance-export-all"><span data-icon="download"></span>导出全部考勤</button></div>
-<input id="attendance-file" type="file" accept=".xlsx,.xls,.xlsb" hidden>
 </div>
 </details>
 
