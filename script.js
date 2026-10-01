@@ -559,12 +559,15 @@ function toggleAttendanceStudents(courseId){
 function drawAttendanceRandom(courseId){
  const sheet=attendanceSheet(courseId),students=sheet.students||[];
  if(!students.length){toast('这门课程还没有学生名单。',true);return;}
- const previous=attendanceRandomStudents.get(courseId)||'';
- const pool=students.length>1?students.filter(st=>st.id!==previous):students;
+ const used=new Set(attendanceInteractionIds(courseId,today));
+ const pool=students.filter(st=>!used.has(st.id));
+ if(!pool.length){toast('这门课程今天所有学生都已经完成过课堂互动，不会重复抽取。');return;}
  const picked=pool[Math.floor(Math.random()*pool.length)];
+ recordAttendanceInteraction(courseId,picked.id,today);
  attendanceRandomStudents.set(courseId,picked.id);
  attendanceExpandedCourses.delete(courseId);
  attendanceSearchQueries.set(courseId,'');
+ save('课堂互动记录已保存');
  renderAttendance();
  requestAnimationFrame(()=>{
   const details=[...document.querySelectorAll('.attendance-course')].find(d=>d.dataset.attendanceCourse===courseId);
