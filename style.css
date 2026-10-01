@@ -129,3 +129,19 @@ body.auth-locked{overflow:hidden;background:#f7f3fa}.access-gate{position:fixed;
 .attendance-export-all-row{display:flex;justify-content:flex-end;align-items:center;margin-top:14px;padding-top:13px;border-top:1px solid #eee6f2}
 .attendance-export-all-row .attendance-export-all{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:35px}
 @media(max-width:650px){.attendance-export-all-row .attendance-export-all{width:100%}}
+
+
+/* Attendance random student picker */
+.attendance-random-button{white-space:nowrap}
+.attendance-random-result{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:-2px 0 11px;padding:9px 10px;border:1px solid #ddd1e7;border-radius:9px;background:#faf7fc;color:#715e7d;font-size:10px}
+.attendance-random-result>span{display:flex;align-items:baseline;gap:6px;min-width:0;flex-wrap:wrap}
+.attendance-random-result strong{font-size:12px;color:#5f496d}
+.attendance-random-result small{color:#a18fab;font-size:9px}
+.attendance-random-selected td{background:#fdfafe}
+.attendance-random-selected .attendance-name{box-shadow:inset 3px 0 #8f6aa5}
+@media(max-width:650px){
+ .attendance-toolbar-actions{grid-template-columns:minmax(0,1fr) auto}
+ .attendance-random-button{width:auto!important;min-width:82px}
+ .attendance-random-result{align-items:flex-start}
+ .attendance-random-result .button{flex:0 0 auto}
+}
