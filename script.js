@@ -201,7 +201,7 @@ let cloud=null, cloudRenderPending=false, guestSnapshot=null, guestWasDirty=fals
 const STORAGE_KEY='teaching-workspace:2026-fall:v1:'+location.pathname.replace(/index\.html$/,'');
 let data=clone(published), today=C.localISO(), selectedWeeks=new Set([C.defaultWeek(today)]), currentTab='schedule', courseFilter='', showEmpty=false, viewMode='grid', noteFilter='all', calendarTerm='fall';
 let dirty=false, publishedRevision=published.revision, cacheWriteFailed=false;
-let editingIds=[], editingBulk=false, editingNoteId=null, editingServiceId=null, managementGroups=[], attendanceUploadCourseId=null;
+let editingIds=[], editingBulk=false, editingNoteId=null, editingServiceId=null, managementGroups=[], attendanceUploadCourseId=null, editingAttendanceCourseId=null, editingAttendanceStudentId=null;
 const attendanceSearchQueries=new Map();
 const attendanceRandomStudents=new Map();
 const attendanceExpandedCourses=new Set();
@@ -640,7 +640,7 @@ function renderAttendance(){
    for(const st of students){
     const randomSelected=!!randomStudentId&&st.id===randomStudentId,visible=randomStudentId?randomSelected:(query?attendanceStudentMatches(st,query):expanded);
     body+='<tr data-attendance-student-row data-student-id="'+esc(st.id)+'" data-name="'+esc(String(st.name||'').toLowerCase())+'" data-student-no="'+esc(String(st.studentNo||'').toLowerCase())+'" class="'+(randomSelected?'attendance-random-selected':'')+'"'+(visible?'':' hidden')+'>';
-    body+='<td class="attendance-name"><span class="attendance-student-name">'+esc(st.name)+'</span><button class="attendance-student-delete" data-action="attendance-delete-student" data-course="'+esc(course.id)+'" data-student="'+esc(st.id)+'" aria-label="删除学生 '+esc(st.name)+'" title="删除学生">×</button></td>';
+    body+='<td class="attendance-name"><span class="attendance-student-name">'+esc(st.name)+'</span><span class="attendance-student-actions"><button class="attendance-student-edit" data-action="attendance-edit-student" data-course="'+esc(course.id)+'" data-student="'+esc(st.id)+'" aria-label="编辑学生 '+esc(st.name)+'" title="编辑学生">'+icon('edit')+'</button><button class="attendance-student-delete" data-action="attendance-delete-student" data-course="'+esc(course.id)+'" data-student="'+esc(st.id)+'" aria-label="删除学生 '+esc(st.name)+'" title="删除学生">×</button></span></td>';
     for(const date of dates){
      const value=attendanceValue(sheet,st.id,date),nearestClass=date===nearestDate?'attendance-nearest-col':'',activeClass=date===activeDate?' attendance-active-col':'';
      body+='<td class="'+(nearestClass+activeClass).trim()+'" data-attendance-date="'+esc(date)+'"><select class="attendance-status '+attendanceStatusClass(value)+'" data-attendance-course="'+esc(course.id)+'" data-student="'+esc(st.id)+'" data-date="'+esc(date)+'" aria-label="'+esc(st.name)+' '+esc(date)+'考勤">';
@@ -746,6 +746,36 @@ function setAttendanceStatus(el){
  if(!sheet.marks[studentId])sheet.marks[studentId]={};
  if(value==='-'){delete sheet.marks[studentId][date];if(!Object.keys(sheet.marks[studentId]).length)delete sheet.marks[studentId];}else sheet.marks[studentId][date]=value;
  el.classList.remove('state-neutral','state-present','state-absent');el.classList.add(attendanceStatusClass(value));save();
+}
+function openAttendanceStudentEditor(courseId,studentId){
+ const sheet=data.attendance?.courses?.[courseId];if(!sheet)return;
+ const st=sheet.students?.find(s=>s.id===studentId);if(!st)return;
+ editingAttendanceCourseId=courseId;editingAttendanceStudentId=studentId;
+ $('#attendance-student-name').value=st.name||'';
+ $('#attendance-student-no').value=st.studentNo||'';
+ $('#attendance-student-error').hidden=true;
+ $('#attendance-student-error').textContent='';
+ $('#attendance-student-dialog').showModal();
+ setTimeout(()=>$('#attendance-student-name')?.focus(),0);
+}
+async function submitAttendanceStudentEditor(event){
+ event.preventDefault();
+ const courseId=editingAttendanceCourseId,studentId=editingAttendanceStudentId;
+ const sheet=data.attendance?.courses?.[courseId];if(!sheet)return;
+ const st=sheet.students?.find(s=>s.id===studentId);if(!st)return;
+ const name=$('#attendance-student-name').value.trim(),studentNo=$('#attendance-student-no').value.trim();
+ const error=$('#attendance-student-error');
+ if(!name||!studentNo){error.textContent='姓名和学号都不能为空。';error.hidden=false;return;}
+ if(sheet.students.some(s=>s.id!==studentId&&String(s.studentNo).trim()===studentNo)){error.textContent='该学号已被本课程其他学生使用，请检查后再保存。';error.hidden=false;return;}
+ if(name===st.name&&studentNo===st.studentNo){$('#attendance-student-dialog').close();toast('学生信息没有变化。');return;}
+ const oldName=st.name,oldNo=st.studentNo;
+ const ok=await confirmAction('确认修改学生信息？\n\n姓名：'+oldName+' → '+name+'\n学号：'+oldNo+' → '+studentNo+'\n\n该学生原有考勤记录会保留。','确认修改学生信息','确认修改');
+ if(!ok)return;
+ st.name=name;st.studentNo=studentNo;
+ save();
+ $('#attendance-student-dialog').close();
+ renderAttendance();
+ notifySaved('已修改学生 '+name+' 的姓名 / 学号。');
 }
 async function deleteAttendanceStudent(courseId,studentId){
  const sheet=data.attendance?.courses?.[courseId];if(!sheet)return;
@@ -891,6 +921,7 @@ document.addEventListener('click',async event=>{
  case 'attendance-upload':attendanceUploadCourseId=b.dataset.course;$('#attendance-file').click();break;
  case 'attendance-export-course':exportAttendanceCourse(b.dataset.course);break;
  case 'attendance-export-all':exportAttendanceAll();break;
+ case 'attendance-edit-student':openAttendanceStudentEditor(b.dataset.course,b.dataset.student);break;
  case 'attendance-delete-student':await deleteAttendanceStudent(b.dataset.course,b.dataset.student);break;
  case 'data':$('#data-dialog').showModal();break;
  case 'export-json':exportJSON();break;
@@ -950,7 +981,7 @@ document.addEventListener('input',event=>{
   const c=data.courses.find(c=>c.name===el.value.trim());if(c)$('#edit-color').value=c.color;
  }
 });
-$('#course-form').addEventListener('submit',submitCourse);$('#note-form').addEventListener('submit',submitNote);$('#service-form').addEventListener('submit',submitService);
+$('#course-form').addEventListener('submit',submitCourse);$('#note-form').addEventListener('submit',submitNote);$('#service-form').addEventListener('submit',submitService);$('#attendance-student-form').addEventListener('submit',submitAttendanceStudentEditor);
 // Closing by Escape is supported by native <dialog>; clicks inside never close it.
 document.addEventListener('pointerdown',event=>{
  if($('#week-picker').open&&!event.target.closest('#week-picker')&&!event.target.closest('#confirm-dialog'))$('#week-picker').open=false;
@@ -973,10 +1004,10 @@ function applyCloudData(next){
  if(focus){const target=$$('[data-progress]').find(x=>x.dataset.progress===focus.id);if(target){target.focus({preventScroll:true});target.setSelectionRange(Math.min(focus.start,target.value.length),Math.min(focus.end,target.value.length));}}
 }
 try{
- cloud=new window.TeachingCloud({getData:()=>clone(data),apply:applyCloudData,normalize:value=>C.normalizeBuses(value),guest:()=>clone(guestSnapshot),guestDirty:()=>guestWasDirty,confirm:confirmAction,download,notify:toast,isEditing:()=>!!document.querySelector('#course-dialog[open],#note-dialog[open],#service-dialog[open],#manage-dialog[open]')||document.activeElement?.classList?.contains('attendance-status')});
+ cloud=new window.TeachingCloud({getData:()=>clone(data),apply:applyCloudData,normalize:value=>C.normalizeBuses(value),guest:()=>clone(guestSnapshot),guestDirty:()=>guestWasDirty,confirm:confirmAction,download,notify:toast,isEditing:()=>!!document.querySelector('#course-dialog[open],#note-dialog[open],#service-dialog[open],#manage-dialog[open],#attendance-student-dialog[open]')||document.activeElement?.classList?.contains('attendance-status')});
 }catch(error){$('#storage-banner').hidden=false;$('#storage-banner').textContent='同步组件未能启动，当前仅本机保存：'+error.message;}
 // Prevent edits while changing accounts / performing the initial cloud read.
-const writes=new Set(['add-course','add-course-week','add-course-slot','edit-record','edit-group','add-course-from-manage','delete-editing','add-note','edit-note','delete-note','complete-reminder','dismiss-reminder','attendance-upload','attendance-delete-student','add-service','edit-service','delete-service','import-json','reset','use-published','keep-local']);
+const writes=new Set(['add-course','add-course-week','add-course-slot','edit-record','edit-group','add-course-from-manage','delete-editing','add-note','edit-note','delete-note','complete-reminder','dismiss-reminder','attendance-upload','attendance-edit-student','attendance-delete-student','add-service','edit-service','delete-service','import-json','reset','use-published','keep-local']);
 document.addEventListener('click',event=>{
  if(cloud?.isLocked()&&(writes.has(event.target.closest('[data-action]')?.dataset.action)||event.target.matches('[data-note-check],#bus-holiday'))){event.preventDefault();event.stopImmediatePropagation();toast('请先完成云端读取，或在“账号与同步”中重试。',true);}
 },true);
