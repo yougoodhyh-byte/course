@@ -143,6 +143,7 @@ class TeachingCloud{
    const email=this.$('#cloud-email').value.trim().toLowerCase();if(email!==ALLOWED_EMAIL)throw new Error('仅允许指定账号登录。');
    const s=await this.request('/auth/v1/token?grant_type=password',{method:'POST',authenticated:false,body:{email,password:this.$('#cloud-password').value}});
    this.$('#cloud-password').value='';await this.connect({...s,expires_at:s.expires_at||Math.floor(Date.now()/1000)+s.expires_in});
+   if(!this.remember&&this.user&&this.ready)this.o.afterTransientLogin?.();
   }catch(e){this.error=/invalid|credentials|grant/i.test(e.message)?'邮箱或密码不正确，或该登录账号尚未创建/验证。':e.message;this.stage='error';this.render();}
   finally{this.$('#cloud-password').value='';this.$('#cloud-login-button').disabled=false;}
  }
