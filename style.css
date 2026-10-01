@@ -347,3 +347,23 @@ body.auth-locked{overflow:hidden;background:#f7f3fa}.access-gate{position:fixed;
 @media(max-width:650px){
   .attendance-random-notice[data-pronunciation]::after{font-size:13px}
 }
+
+
+/* Offline draft review */
+.offline-draft-dialog{max-width:680px}
+.offline-draft-subtitle{margin:4px 0 0;color:#91809c;font-size:10px}
+.offline-draft-notice{padding:12px 14px;border:1px solid #ded4e7;border-radius:11px;background:#faf7fc}
+.offline-draft-notice strong{display:block;color:#5d4b69;font-size:12px}
+.offline-draft-notice p{margin:5px 0 0;color:#8b7996;font-size:10px;line-height:1.65}
+.offline-draft-summary{margin-top:13px;max-height:360px;overflow:auto;border:1px solid #eee7f2;border-radius:11px;background:#fff}
+.offline-draft-summary ul{list-style:none;margin:0;padding:4px 0}
+.offline-draft-summary li{padding:9px 12px;border-bottom:1px solid #f1ebf4;color:#5f5268;font-size:11px;line-height:1.55}
+.offline-draft-summary li:last-child{border-bottom:0}
+.offline-draft-summary li::before{content:"•";margin-right:8px;color:#8263a0;font-weight:700}
+.offline-draft-summary .offline-draft-empty{padding:18px 14px;color:#9987a4;text-align:center;font-size:11px}
+.offline-draft-actions{flex-wrap:wrap}
+@media(max-width:550px){
+ .offline-draft-actions{display:grid;grid-template-columns:1fr 1fr}
+ .offline-draft-actions .button{width:100%}
+ .offline-draft-actions .button.primary{grid-column:1/-1;grid-row:1}
+}
