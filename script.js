@@ -542,6 +542,19 @@ function attendanceRequiredCourses(){
 function attendanceDates(courseId){
  return [...new Set(data.records.filter(r=>r.courseId===courseId).map(r=>C.dateFor(r.week,r.day)))].sort();
 }
+function attendanceSearchTargetDate(courseId,reference=today){
+ const dates=attendanceDates(courseId);if(!dates.length)return '';
+ if(dates.includes(reference))return reference;
+ const ref=C.dayValue(reference);
+ let best=dates[0],bestDistance=Math.abs(C.dayValue(best)-ref);
+ for(const date of dates.slice(1)){
+  const distance=Math.abs(C.dayValue(date)-ref);
+  if(distance<bestDistance||(distance===bestDistance&&date>=reference&&best<reference)){
+   best=date;bestDistance=distance;
+  }
+ }
+ return best;
+}
 function attendanceSheet(courseId){return data.attendance?.courses?.[courseId]||{filename:'',importedAt:'',students:[],marks:{}};}
 function attendanceValue(sheet,studentId,date){return String(sheet.marks?.[studentId]?.[date]||'-');}
 function attendanceWeek(date){const n=Math.floor((C.dayValue(date)-C.dayValue(C.START))/7)+1;return n>=1&&n<=20?n:null;}
@@ -626,7 +639,16 @@ function attendanceTiming(courseId,now=new Date()){
  }
  return {nearestDate,nearestDistance,activeDate};
 }
+function scrollAttendanceToDate(scope,date,behavior='smooth'){
+ const scroll=scope?.querySelector?.('.attendance-table-scroll');if(!scroll||!date)return;
+ const target=[...scroll.querySelectorAll('thead [data-attendance-date]')].find(cell=>cell.dataset.attendanceDate===date);
+ if(!target)return;
+ const left=Math.max(0,target.offsetLeft-(scroll.clientWidth-target.offsetWidth)/2);
+ scroll.scrollTo({left,behavior});
+}
 function scrollAttendanceToNearest(scope,behavior='smooth'){
+ const date=scope?.dataset?.nearestDate||'';
+ if(date)return scrollAttendanceToDate(scope,date,behavior);
  const scroll=scope?.querySelector?.('.attendance-table-scroll');if(!scroll)return;
  const target=scroll.querySelector('thead .attendance-nearest-col');if(!target)return;
  const left=Math.max(0,target.offsetLeft-(scroll.clientWidth-target.offsetWidth)/2);
@@ -1029,10 +1051,17 @@ document.addEventListener('input',event=>{
   if(expandButton)expandButton.textContent='展开学生信息';
   const tableScroll=details?.querySelector('.attendance-table-scroll');
   if(tableScroll)tableScroll.hidden=!query;
+  let hasMatch=false;
   details?.querySelectorAll('[data-attendance-student-row]').forEach(row=>{
    row.classList.remove('attendance-random-selected');
-   row.hidden=!query||!((row.dataset.name||'').includes(query)||(row.dataset.studentNo||'').includes(query));
+   const match=!!query&&((row.dataset.name||'').includes(query)||(row.dataset.studentNo||'').includes(query));
+   row.hidden=!match;
+   if(match)hasMatch=true;
   });
+  if(query&&hasMatch&&details){
+   const targetDate=attendanceSearchTargetDate(courseId,today);
+   requestAnimationFrame(()=>scrollAttendanceToDate(details,targetDate,'smooth'));
+  }
  }else if(el.dataset.progress){
   const r=data.records.find(r=>r.id===el.dataset.progress);if(!r)return;
   r.progress=el.value;save('进度已保存到本机');
