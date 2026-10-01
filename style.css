@@ -190,3 +190,24 @@ body.auth-locked{overflow:hidden;background:#f7f3fa}.access-gate{position:fixed;
   .desktop-logout{display:none!important}
 }
 @media print{.desktop-logout{display:none!important}}
+
+
+/* Attendance starts with random picker + search, not the full student list. */
+.attendance-query-placeholder{
+  margin:2px 0 12px;
+  padding:18px 14px;
+  border:1px dashed #ddd1e7;
+  border-radius:9px;
+  background:#fdfbfe;
+  color:#9b88a5;
+  font-size:10px;
+  line-height:1.7;
+  text-align:center;
+}
+.attendance-toolbar-actions .attendance-random-button{order:0}
+.attendance-toolbar-actions .attendance-search{order:1}
+@media(max-width:650px){
+  .attendance-toolbar-actions{grid-template-columns:auto minmax(0,1fr)}
+  .attendance-toolbar-actions .attendance-random-button{width:auto!important;min-width:82px}
+  .attendance-toolbar-actions .attendance-search{grid-column:auto}
+}
