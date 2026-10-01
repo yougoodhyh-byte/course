@@ -23,7 +23,7 @@
 
 ## 在微信开发者工具打开
 1. 选择“导入项目”，项目目录选 wechat-miniprogram。
-2. 当前 project.config.json 使用 touristappid，便于先打开项目；正式上传前替换为你自己小程序的 AppID。
+2. 当前 project.config.json 已配置正式小程序 AppID：wx5f60425c0177c100。
 3. 在微信公众平台后台的“开发设置 / 服务器域名”中，把下面地址加入 request 合法域名：
    https://oyihlolzwncfwuphidhw.supabase.co
 4. 开发阶段如果域名尚未配置，可在开发者工具临时关闭“校验合法域名”；正式版必须配置。
