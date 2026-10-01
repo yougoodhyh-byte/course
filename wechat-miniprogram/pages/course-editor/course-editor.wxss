@@ -1,4 +1,0 @@
-.form{padding:26rpx}.picker{height:78rpx;line-height:78rpx;border:1rpx solid #dfd4e7;border-radius:16rpx;padding:0 22rpx;background:#fff}
-.chips{display:flex;flex-wrap:wrap;gap:12rpx}.chip{min-width:66rpx;text-align:center;padding:14rpx;border:1rpx solid #e1d7e7;border-radius:14rpx;color:#806f8a;background:#fff;font-size:23rpx}.chip.selected{background:#6956d9;border-color:#6956d9;color:#fff}.slot{width:145rpx;display:flex;flex-direction:column}.small{font-size:18rpx;opacity:.75;margin-top:3rpx}
-.colors{display:flex;gap:18rpx;flex-wrap:wrap}.color{width:56rpx;height:56rpx;border-radius:50%;border:6rpx solid transparent}.color.active{border-color:#d9cfea;box-shadow:0 0 0 3rpx #6956d9}
-.actions{display:grid;grid-template-columns:1fr 1fr;gap:16rpx;margin-top:22rpx}.actions .btn:only-child{grid-column:1/-1}

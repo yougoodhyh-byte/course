@@ -1,6 +1,8 @@
 # 教学工作台
 
+本项目当前仅维护网页版。
+
 - 网站：GitHub Pages 主目录
-- 微信小程序：`wechat-miniprogram/`
-- Supabase：网站与微信小程序共用同一份私有教学数据
-- 小程序部署说明：`wechat-miniprogram/README.md`
+- 网页文件：`index.html`、`script.js`、`style.css`
+- 登录与私有教学数据：Supabase
+- 部署说明：`部署与同步说明.md`

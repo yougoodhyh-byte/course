@@ -1,5 +1,0 @@
-.login-page{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:36rpx;background:radial-gradient(circle at 50% 15%,#fff,#f6f1f9)}
-.login-card{width:100%;max-width:720rpx;background:#fff;border:1rpx solid #e7dced;border-radius:30rpx;padding:48rpx 38rpx;box-shadow:0 30rpx 80rpx rgba(75,51,90,.10)}
-.brand{color:#6b5579;font-size:28rpx;font-weight:700;margin-bottom:40rpx}.title{font-size:44rpx;font-weight:700;color:#5d496b}.desc{color:#95839f;font-size:23rpx;line-height:1.8;margin:10rpx 0 30rpx}
-.remember{display:flex;align-items:center;gap:14rpx;margin:22rpx 0;color:#82718d;font-size:23rpx}.remember switch{transform:scale(.78)}
-.login-btn{margin-top:12rpx}.error{margin-top:20rpx;background:#fff1f2;color:#ad4b57;border:1rpx solid #efc4ca;border-radius:14rpx;padding:16rpx;font-size:22rpx}
