@@ -217,21 +217,25 @@ body.auth-locked{overflow:hidden;background:#f7f3fa}.access-gate{position:fixed;
 .attendance-expand-button{white-space:nowrap}
 @media(max-width:650px){
   .attendance-toolbar-actions{
-    grid-template-columns:1fr 1fr;
+    display:flex;
     width:100%;
-  }
-  .attendance-toolbar-actions .attendance-search{
-    grid-column:1/-1;
-    grid-row:1;
+    align-items:center;
+    gap:8px;
+    flex-wrap:wrap;
   }
   .attendance-toolbar-actions .attendance-random-button{
-    grid-column:1;
-    grid-row:2;
-    width:100%!important;
+    order:0;
+    width:auto!important;
+    min-width:82px;
+  }
+  .attendance-toolbar-actions .attendance-search{
+    order:1;
+    flex:1 1 150px;
+    min-width:140px;
   }
   .attendance-toolbar-actions .attendance-expand-button{
-    grid-column:2;
-    grid-row:2;
-    width:100%!important;
+    order:2;
+    width:auto!important;
+    min-width:96px;
   }
 }
