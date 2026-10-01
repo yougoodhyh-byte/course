@@ -169,3 +169,24 @@ body.auth-locked{overflow:hidden;background:#f7f3fa}.access-gate{position:fixed;
 }
 #access-password::-ms-reveal,#access-password::-ms-clear,
 #cloud-password::-ms-reveal,#cloud-password::-ms-clear{display:none}
+
+
+/* Desktop top-right logout; mobile keeps the existing header logout. */
+.desktop-logout{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:52px;
+  color:#75637f;
+  border-color:#e3dbe9;
+  background:#fff;
+}
+.desktop-logout:hover,.desktop-logout:focus-visible{
+  color:#c04652;
+  border-color:#edcbd0;
+  background:#fff8f8;
+}
+@media(max-width:800px){
+  .desktop-logout{display:none!important}
+}
+@media print{.desktop-logout{display:none!important}}
