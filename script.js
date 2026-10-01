@@ -228,6 +228,17 @@ function courseStyle(course){
 function toast(message,error=false){
  const el=document.createElement('div');el.className='toast'+(error?' error':'');el.textContent=message;$('#toasts').append(el);setTimeout(()=>el.remove(),4000);
 }
+function attendanceRandomNotice(name){
+ document.querySelector('.attendance-random-notice')?.remove();
+ const el=document.createElement('div');
+ el.className='attendance-random-notice';
+ el.setAttribute('role','status');
+ el.setAttribute('aria-live','polite');
+ el.textContent='本次抽取的同学为：'+name;
+ document.body.append(el);
+ requestAnimationFrame(()=>el.classList.add('show'));
+ setTimeout(()=>{el.classList.remove('show');setTimeout(()=>el.remove(),220);},3000);
+}
 function save(label='已保存到本机',markDirty=true){
  if(markDirty)dirty=true;
  if(cloud?.user){
@@ -551,7 +562,7 @@ function drawAttendanceRandom(courseId){
   const target=[...row?.querySelectorAll('.attendance-status')||[]].find(el=>el.dataset.date===nearestDate)||row?.querySelector('.attendance-status');
   target?.focus({preventScroll:true});
  });
- toast('已随机抽取：'+picked.name);
+ attendanceRandomNotice(picked.name);
 }
 function localDateTimeMs(date,time){
  const parts=String(date).split('-').map(Number),clock=String(time).split(':').map(Number);
