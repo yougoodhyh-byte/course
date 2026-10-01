@@ -46,7 +46,7 @@ function validateConfig(value){
 function readStorage(storage,key){try{return JSON.parse(storage.getItem(key)||'null');}catch{return null;}}
 class TeachingCloud{
  constructor(options){
-  this.o=options;this.$=s=>document.querySelector(s);this.user=null;this.session=null;this.ready=false;this.base=null;this.version=0;this.dirty=false;this.conflict=null;this.syncing=false;this.epoch=0;this.storageError=false;this.message='';this.error='';this.stage='local';
+  this.o=options;this.$=s=>document.querySelector(s);this.user=null;this.session=null;this.ready=false;this.base=null;this.version=0;this.dirty=false;this.conflict=null;this.syncing=false;this.epoch=0;this.storageError=false;this.message='';this.error='';this.stage='local';this.offlineDraftNeedsReview=false;this.offlineDraftAt='';this.draftReviewDeferred=false;this.reviewingDraft=false;
   this.scope='teaching-cloud:'+location.pathname.replace(/index\.html$/,'');
   this.clientId=readStorage(sessionStorage,this.scope+':client');
   if(typeof this.clientId!=='string'){
@@ -56,7 +56,7 @@ class TeachingCloud{
   try{this.config=validateConfig(root.TEACHING_CLOUD_CONFIG?.url?root.TEACHING_CLOUD_CONFIG:readStorage(localStorage,this.scope+':config'));}catch(e){this.config=null;this.error=e.message;}
   this.bind();this.render();
   this.timer=setInterval(()=>{if(!document.hidden)this.sync();},10000);
-  window.addEventListener('online',()=>this.sync());
+  window.addEventListener('online',()=>{this.draftReviewDeferred=false;this.sync();});
   window.addEventListener('storage',e=>{
    if(this.config&&this.user&&e.key===this.authKey()&&e.newValue===null){
     this.cache();this.epoch++;this.session=null;this.user=null;this.ready=false;this.base=null;this.dirty=false;this.conflict=null;this.syncing=false;this.stage='local';this.message='此浏览器的账号已退出，待同步草稿仍保留，重新登录后可恢复。';this.error='';this.o.apply(this.normalize(this.o.guest()));this.render();
@@ -160,7 +160,7 @@ class TeachingCloud{
   let cached=readStorage(localStorage,this.cacheKey());
   if(!cached){cached=this.drafts().find(d=>d.dirty);if(cached)this.recovered={key:cached.key,updatedAt:cached.updatedAt};}
   try{
-   if(cached?.base&&cached?.local&&cached.userId===this.user.id){this.base=this.normalize(cached.base);this.version=cached.version;this.o.apply(this.normalize(cached.local));this.dirty=!equal(this.o.getData(),this.base);this.ready=true;}
+   if(cached?.base&&cached?.local&&cached.userId===this.user.id){this.base=this.normalize(cached.base);this.version=cached.version;this.o.apply(this.normalize(cached.local));this.dirty=!equal(this.o.getData(),this.base);this.ready=true;this.offlineDraftNeedsReview=!!cached.needsReview&&this.dirty;this.offlineDraftAt=cached.offlineDraftAt||cached.updatedAt||'';this.draftReviewDeferred=!!cached.reviewDeferred&&this.offlineDraftNeedsReview;}
   }catch{this.message='本机草稿格式异常，原草稿已保留。请先导出待同步草稿。';}
   this.render();await this.sync();
  }
@@ -178,19 +178,51 @@ class TeachingCloud{
  }
  cache(){
   if(!this.user||!this.base)return;
-  try{localStorage.setItem(this.cacheKey(),JSON.stringify({userId:this.user.id,base:this.base,local:this.o.getData(),version:this.version,dirty:this.dirty,updatedAt:new Date().toISOString()}));this.storageError=false;}
+  try{localStorage.setItem(this.cacheKey(),JSON.stringify({userId:this.user.id,base:this.base,local:this.o.getData(),version:this.version,dirty:this.dirty,needsReview:this.offlineDraftNeedsReview,offlineDraftAt:this.offlineDraftAt,reviewDeferred:this.draftReviewDeferred,updatedAt:new Date().toISOString()}));this.storageError=false;}
   catch{this.storageError=true;this.error='本机空间不足，离线草稿无法保存。请保持页面打开并立即导出备份。';}
  }
  capture(){
   if(!this.user)return false;
   if(!this.ready){this.error='尚未完成云端读取，请先重试连接。';this.render();return false;}
-  this.dirty=!equal(this.o.getData(),this.base);this.cache();
-  if(!this.conflict)this.stage=this.dirty?'pending':'synced';
-  this.render();clearTimeout(this.debounce);this.debounce=setTimeout(()=>this.sync(),650);return !this.storageError;
+  this.dirty=!equal(this.o.getData(),this.base);
+  if(this.dirty&&!navigator.onLine){
+   this.offlineDraftNeedsReview=true;
+   if(!this.offlineDraftAt)this.offlineDraftAt=new Date().toISOString();
+   this.draftReviewDeferred=false;
+  }
+  if(!this.dirty){this.offlineDraftNeedsReview=false;this.offlineDraftAt='';this.draftReviewDeferred=false;}
+  this.cache();
+  if(!this.conflict)this.stage=this.offlineDraftNeedsReview?(navigator.onLine?'draft':'offline'):(this.dirty?'pending':'synced');
+  this.render();clearTimeout(this.debounce);
+  if(!this.offlineDraftNeedsReview)this.debounce=setTimeout(()=>this.sync(),650);
+  return !this.storageError;
  }
- async sync(){
+ async reviewOfflineDraft(){
+  if(!this.offlineDraftNeedsReview||!this.dirty||!this.base||this.reviewingDraft)return;
+  if(!navigator.onLine){this.stage='offline';this.cache();this.render();return;}
+  if(typeof this.o.reviewDraft!=='function'){this.stage='draft';this.draftReviewDeferred=true;this.cache();this.render();return;}
+  this.reviewingDraft=true;
+  try{
+   const choice=await this.o.reviewDraft({base:copy(this.base),local:copy(this.o.getData()),updatedAt:this.offlineDraftAt});
+   if(choice==='sync'){
+    this.offlineDraftNeedsReview=false;this.offlineDraftAt='';this.draftReviewDeferred=false;this.message='已确认离线草稿，正在同步到云端。';this.cache();
+    await this.sync(true);
+   }else if(choice==='discard'){
+    this.o.apply(copy(this.base));this.dirty=false;this.offlineDraftNeedsReview=false;this.offlineDraftAt='';this.draftReviewDeferred=false;this.message='已放弃离线草稿，正在读取最新云端资料。';this.cache();
+    await this.sync(true);
+   }else{
+    this.draftReviewDeferred=true;this.stage='draft';this.message='离线修改继续保留在这台设备，尚未上传云端。';this.cache();
+   }
+  }finally{this.reviewingDraft=false;this.render();}
+ }
+ async sync(force=false){
   if(!this.user||!this.config||this.syncing||this.conflict)return;
-  if(this.o.isEditing()){this.stage=this.dirty?'pending':this.stage;this.render();return;}
+  if(this.o.isEditing()){this.stage=this.offlineDraftNeedsReview?(navigator.onLine?'draft':'offline'):(this.dirty?'pending':this.stage);this.render();return;}
+  if(this.offlineDraftNeedsReview&&!force){
+   if(!navigator.onLine){this.stage='offline';this.cache();this.render();return;}
+   if(this.draftReviewDeferred){this.stage='draft';this.render();return;}
+   await this.reviewOfflineDraft();return;
+  }
   this.syncing=true;const epoch=this.epoch;this.stage='syncing';this.render();
   try{
    for(let attempt=0;attempt<3;attempt++){
@@ -221,11 +253,11 @@ class TeachingCloud{
     const saved=await this.request('/rest/v1/rpc/save_teaching_workspace',{method:'POST',body:{p_expected_revision:remote.revision,p_payload:sent}});
     if(epoch!==this.epoch)return;
     if(!saved?.ok)continue;
-    this.base=sent;this.version=Number(saved.revision);this.lastSync=saved.updated_at;this.dirty=!equal(this.o.getData(),sent);this.cache();this.clearRecovered();this.stage=this.dirty?'pending':'synced';this.error='';
+    this.base=sent;this.version=Number(saved.revision);this.lastSync=saved.updated_at;this.dirty=!equal(this.o.getData(),sent);if(!this.dirty){this.offlineDraftNeedsReview=false;this.offlineDraftAt='';this.draftReviewDeferred=false;}this.cache();this.clearRecovered();this.stage=this.dirty?'pending':'synced';this.error='';
     if(this.dirty){clearTimeout(this.debounce);this.debounce=setTimeout(()=>this.sync(),700);}return;
    }
    throw new Error('其他设备正在更新。当前修改已保留，稍后自动重试。');
-  }catch(e){if(epoch===this.epoch){this.error=this.friendly(e.message);this.stage=navigator.onLine?'error':'offline';this.cache();}}
+  }catch(e){if(epoch===this.epoch){this.error=this.friendly(e.message);this.stage=navigator.onLine?'error':'offline';if(!navigator.onLine&&this.dirty){this.offlineDraftNeedsReview=true;if(!this.offlineDraftAt)this.offlineDraftAt=new Date().toISOString();this.draftReviewDeferred=false;}this.cache();}}
   finally{if(epoch===this.epoch){this.syncing=false;this.render();}}
  }
  clearRecovered(){
@@ -262,14 +294,14 @@ class TeachingCloud{
  }
  backupConflict(){if(this.conflict)this.o.download('同步冲突备份.json',JSON.stringify({format:'teaching-conflict-backup',createdAt:new Date().toISOString(),local:this.conflict.local,cloud:this.conflict.remote},null,2),'application/json');}
  render(){
-  const labels={local:this.config?'未登录 · 仅本机':'仅本机',loading:'读取云端',syncing:'同步中',synced:'已同步',pending:'待同步',conflict:'同步冲突',error:'同步失败',offline:'离线待同步',expired:'请重新登录',waiting:'尚未上传'};
+  const labels={local:this.config?'未登录 · 仅本机':'仅本机',loading:'读取云端',syncing:'同步中',synced:'已同步',pending:'待同步',draft:'草稿待确认',conflict:'同步冲突',error:'同步失败',offline:'离线草稿',expired:'请重新登录',waiting:'尚未上传'};
   const authorized=!!this.user&&this.ready&&(this.user.email||'').toLowerCase()===ALLOWED_EMAIL;const gate=this.$('#access-gate'),app=this.$('#protected-app');if(gate)gate.hidden=authorized;if(app)app.hidden=!authorized;document.body.classList.toggle('auth-locked',!authorized);const accessStatus=this.$('#access-status'),accessError=this.$('#access-error');if(accessStatus)accessStatus.textContent=this.user&&!this.ready?'正在验证账号并读取云端资料…':'请使用指定账号登录。';if(accessError){accessError.textContent=this.error||'';accessError.hidden=!this.error;}
-  const el=this.$('#save-status');el.textContent=labels[this.stage]||'仅本机';el.classList.toggle('unsaved',['error','offline','expired','conflict'].includes(this.stage));el.title=this.user?(this.dirty?'有修改尚未写入云端。':'云端账号：'+this.user.email):'当前编辑只保存在本机。配置云端并登录后才能跨设备同步。';
+  const el=this.$('#save-status');el.textContent=labels[this.stage]||'仅本机';el.classList.toggle('unsaved',['error','offline','draft','expired','conflict'].includes(this.stage));el.title=this.user?(this.dirty?'有修改尚未写入云端。':'云端账号：'+this.user.email):'当前编辑只保存在本机。配置云端并登录后才能跨设备同步。';
   this.$('#cloud-entry').textContent=this.user?'账号与同步':'登录同步';
   this.$('#cloud-unconfigured').hidden=!!this.config;
   this.$('#cloud-login-form').hidden=!this.config||(!!this.user&&this.stage!=='expired');
   this.$('#cloud-account').hidden=!this.user;this.$('#cloud-user').textContent=this.user?.email||'';
-  let message=!this.config?'尚未配置云端，当前仅本机保存。':!this.user?'登录后在不同设备同步同一账号资料。':this.dirty?'有修改尚未同步，请保持联网。':this.ready?'已连接云端，同一账号可跨设备使用。':'正在读取云端资料。';
+  let message=!this.config?'尚未配置云端，当前仅本机保存。':!this.user?'登录后在不同设备同步同一账号资料。':this.offlineDraftNeedsReview?(navigator.onLine?'存在离线编辑草稿，等待你确认是否同步。':'当前离线，修改已保存为本机草稿。'):this.dirty?'有修改尚未同步，请保持联网。':this.ready?'已连接云端，同一账号可跨设备使用。':'正在读取云端资料。';
   if(this.stage==='synced'&&this.lastSync)message+='\n最近同步：'+new Date(this.lastSync).toLocaleString('zh-CN');
   if(this.message)message+='\n'+this.message;
   this.$('#cloud-message').textContent=message;this.$('#cloud-error').textContent=this.error;this.$('#cloud-error').hidden=!this.error;
@@ -292,7 +324,7 @@ class TeachingCloud{
   document.addEventListener('click',async e=>{
    const action=e.target.closest('[data-action]')?.dataset.action;if(!action)return;
    if(action==='cloud'){this.render();this.$('#cloud-dialog').showModal();}
-   else if(action==='cloud-sync')await this.sync();
+   else if(action==='cloud-sync'){if(this.offlineDraftNeedsReview)this.draftReviewDeferred=false;await this.sync();}
    else if(action==='cloud-logout')await this.logout();
    else if(action==='cloud-migrate')await this.migrate();
    else if(action==='cloud-open-backup'){this.$('#cloud-dialog').close();this.$('#data-dialog').showModal();}
