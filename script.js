@@ -615,7 +615,8 @@ function renderAttendance(){
   if(randomStudentId&&!randomStudent){attendanceRandomStudents.delete(course.id);randomStudentId='';}
   let table='';
   if(students.length){
-   let head='<div class="attendance-table-scroll"><table class="attendance-table"><thead><tr><th class="attendance-name">姓名</th>';
+   const hasAttendanceResult=!!randomStudentId||!!query;
+   let head='<div class="attendance-table-scroll"'+(hasAttendanceResult?'':' hidden')+'><table class="attendance-table"><thead><tr><th class="attendance-name">姓名</th>';
    for(const date of dates){
     const w=attendanceWeek(date),nearestClass=date===nearestDate?' attendance-nearest-col':'',activeClass=date===activeDate?' attendance-active-col':'';
     head+='<th class="attendance-date'+nearestClass+activeClass+'" data-attendance-date="'+esc(date)+'"><span>'+esc(date.slice(5).replace('-','/'))+'</span><small>'+(w?'第'+w+'周':'')+(date===activeDate?' · 上课中':date===today?' · 今天':'')+'</small></th>';
@@ -623,7 +624,7 @@ function renderAttendance(){
    head+='<th class="attendance-id">学号</th></tr></thead><tbody>';
    let body='';
    for(const st of students){
-    const randomSelected=!!randomStudentId&&st.id===randomStudentId,visible=randomStudentId?randomSelected:attendanceStudentMatches(st,query);
+    const randomSelected=!!randomStudentId&&st.id===randomStudentId,visible=randomStudentId?randomSelected:(query?attendanceStudentMatches(st,query):false);
     body+='<tr data-attendance-student-row data-student-id="'+esc(st.id)+'" data-name="'+esc(String(st.name||'').toLowerCase())+'" data-student-no="'+esc(String(st.studentNo||'').toLowerCase())+'" class="'+(randomSelected?'attendance-random-selected':'')+'"'+(visible?'':' hidden')+'>';
     body+='<td class="attendance-name"><span class="attendance-student-name">'+esc(st.name)+'</span><button class="attendance-student-delete" data-action="attendance-delete-student" data-course="'+esc(course.id)+'" data-student="'+esc(st.id)+'" aria-label="删除学生 '+esc(st.name)+'" title="删除学生">×</button></td>';
     for(const date of dates){
@@ -638,8 +639,9 @@ function renderAttendance(){
   }else table='<div class="attendance-empty">上传 Excel 后自动生成学生名单与考勤日期。</div>';
   const openAttr=openIds.has(course.id)?' open':'';
   html+='<details class="attendance-course'+(activeDate?' is-class-active':'')+'" data-attendance-course="'+esc(course.id)+'" data-nearest-date="'+esc(nearestDate||'')+'" data-nearest-distance="'+(Number.isFinite(timing.nearestDistance)?String(timing.nearestDistance):'')+'" data-active-date="'+esc(activeDate||'')+'"'+openAttr+'><summary><span><strong>'+esc(display)+'</strong><small>'+fileInfo+(activeDate?' · 正在上课':'')+'</small></span><span class="service-fold-chevron">'+icon('chevron-down')+'</span></summary><div class="attendance-course-body">';
-  html+='<div class="attendance-toolbar"><div><strong>'+esc(display)+'</strong><small>'+dates.length+' 个上课日期 · “-”未登记，“1”到勤，“-1”缺勤</small></div>'+(students.length?'<div class="attendance-toolbar-actions"><label class="attendance-search"><input type="search" value="'+esc(attendanceSearchQueries.get(course.id)||'')+'" placeholder="检索姓名或学号" data-attendance-search="'+esc(course.id)+'" autocomplete="off" aria-label="'+esc(display)+'检索学生"></label><button class="button small attendance-random-button" data-action="attendance-random" data-course="'+esc(course.id)+'">随机抽取</button></div>':'')+'</div>';
-  if(randomStudent)html+='<div class="attendance-random-result"><span>本次抽取：<strong>'+esc(randomStudent.name)+'</strong><small>学号 '+esc(randomStudent.studentNo)+'</small></span><button class="button small" data-action="attendance-random-clear" data-course="'+esc(course.id)+'">显示全部</button></div>';
+  html+='<div class="attendance-toolbar"><div><strong>'+esc(display)+'</strong><small>'+dates.length+' 个上课日期 · “-”未登记，“1”到勤，“-1”缺勤</small></div>'+(students.length?'<div class="attendance-toolbar-actions"><button class="button small attendance-random-button" data-action="attendance-random" data-course="'+esc(course.id)+'">随机点名</button><label class="attendance-search"><input type="search" value="'+esc(attendanceSearchQueries.get(course.id)||'')+'" placeholder="搜索姓名或学号" data-attendance-search="'+esc(course.id)+'" autocomplete="off" aria-label="'+esc(display)+'搜索学生"></label></div>':'')+'</div>';
+  if(randomStudent)html+='<div class="attendance-random-result"><span>本次抽取：<strong>'+esc(randomStudent.name)+'</strong><small>学号 '+esc(randomStudent.studentNo)+'</small></span><button class="button small" data-action="attendance-random-clear" data-course="'+esc(course.id)+'">清除结果</button></div>';
+  if(students.length&&!randomStudentId&&!query)html+='<div class="attendance-query-placeholder">请点击“随机点名”，或搜索姓名 / 学号后查看对应学生的考勤。</div>';
   html+=table;
   html+='<div class="attendance-bottom-actions">'+(students.length?'<button class="button" data-action="attendance-export-course" data-course="'+esc(course.id)+'">'+icon('download')+'导出考勤</button>':'')+'<button class="button primary" data-action="attendance-upload" data-course="'+esc(course.id)+'">'+(students.length?'替换 Excel':'上传 Excel')+'</button></div>';
   html+='</div></details>';
@@ -908,9 +910,19 @@ document.addEventListener('input',event=>{
   attendanceRandomStudents.delete(courseId);
   const details=el.closest('.attendance-course');
   details?.querySelector('.attendance-random-result')?.remove();
+  let placeholder=details?.querySelector('.attendance-query-placeholder');
+  if(!placeholder&&details&&!query){
+   placeholder=document.createElement('div');
+   placeholder.className='attendance-query-placeholder';
+   placeholder.textContent='请点击“随机点名”，或搜索姓名 / 学号后查看对应学生的考勤。';
+   details.querySelector('.attendance-table-scroll')?.before(placeholder);
+  }
+  if(placeholder)placeholder.hidden=!!query;
+  const tableScroll=details?.querySelector('.attendance-table-scroll');
+  if(tableScroll)tableScroll.hidden=!query;
   details?.querySelectorAll('[data-attendance-student-row]').forEach(row=>{
    row.classList.remove('attendance-random-selected');
-   row.hidden=!!query&&!((row.dataset.name||'').includes(query)||(row.dataset.studentNo||'').includes(query));
+   row.hidden=!query||!((row.dataset.name||'').includes(query)||(row.dataset.studentNo||'').includes(query));
   });
  }else if(el.dataset.progress){
   const r=data.records.find(r=>r.id===el.dataset.progress);if(!r)return;
