@@ -159,3 +159,13 @@ body.auth-locked{overflow:hidden;background:#f7f3fa}.access-gate{position:fixed;
  .header-logout{right:0;top:0;min-width:52px;height:33px;font-size:11px;padding:0 11px}
 }
 @media print{.header-logout{display:none!important}}
+
+
+/* Password privacy: always keep typed characters visually masked. */
+#access-password,#cloud-password{
+  -webkit-text-security:disc!important;
+  text-security:disc;
+  letter-spacing:.14em;
+}
+#access-password::-ms-reveal,#access-password::-ms-clear,
+#cloud-password::-ms-reveal,#cloud-password::-ms-clear{display:none}
