@@ -272,6 +272,8 @@ function showTab(tab){
 }
 function renderClock(){
  const week=C.currentWeek(today),range=week?C.weekRange(week):null;
+ const [dateYear,dateMonth,dateDay]=today.split('-').map(Number);
+ const sidebarDate=$('#sidebar-date');if(sidebarDate)sidebarDate.textContent=`${dateYear}年${dateMonth}月${dateDay}日`;
  $('#sidebar-week').textContent=week?`第 ${C.pad(week)} 周 / 20`:(C.dayValue(today)<C.dayValue(C.START)?'学期尚未开始':'本学期已结束');
  $('#semester-track').style.width=week?((week-1)/20*100)+'%':(C.dayValue(today)<C.dayValue(C.START)?'0%':'100%');
  $('#current-week-button').textContent=week?'回到当前周':`定位第${C.defaultWeek(today)}周`;
