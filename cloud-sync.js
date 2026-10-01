@@ -69,25 +69,39 @@ class TeachingCloud{
   this.restore();
  }
  authKey(){return this.scope+':'+this.config.url+':session';}
+ rememberKey(){return this.scope+':'+this.config.url+':remember';}
  cachePrefix(){return this.scope+':'+this.config.url+':draft:'+this.user.id+':';}
  cacheKey(){return this.cachePrefix()+this.clientId;}
  normalize(data){return this.o.normalize(copy(data));}
  isLocked(){return !!this.user&&!this.ready;}
  async restore(){
   if(!this.config)return;
-  // “保持登录”未勾选时，登录状态只存在页面内存中；刷新后必须重新登录。
+  // 一次性登录只存在页面内存中；刷新后必须重新登录。
+  // 只有显式“保持登录”标记存在时，才允许从 localStorage 恢复账号。
   try{sessionStorage.removeItem(this.authKey());}catch{}
-  const s=readStorage(localStorage,this.authKey());
+  const remembered=readStorage(localStorage,this.rememberKey())===true;
+  const s=remembered?readStorage(localStorage,this.authKey()):null;
+  if(!remembered){
+   try{localStorage.removeItem(this.authKey());localStorage.removeItem(this.rememberKey());}catch{}
+   return;
+  }
   if(s?.access_token&&s?.refresh_token&&s?.user?.id){this.remember=true;await this.connect(s);}
+  else{
+   try{localStorage.removeItem(this.authKey());localStorage.removeItem(this.rememberKey());}catch{}
+  }
  }
  persistSession(){
   if(!this.session)return;
   const s={access_token:this.session.access_token,refresh_token:this.session.refresh_token,expires_at:this.session.expires_at,user:{id:this.session.user.id,email:this.session.user.email}};
   try{
-   // 只有明确勾选“保持登录”才持久保存；否则只保留当前页面内存中的 this.session。
    sessionStorage.removeItem(this.authKey());
-   if(this.remember)localStorage.setItem(this.authKey(),JSON.stringify(s));
-   else localStorage.removeItem(this.authKey());
+   if(this.remember){
+    localStorage.setItem(this.authKey(),JSON.stringify(s));
+    localStorage.setItem(this.rememberKey(),'true');
+   }else{
+    localStorage.removeItem(this.authKey());
+    localStorage.removeItem(this.rememberKey());
+   }
   }catch{this.message=this.remember?'浏览器无法保存登录状态，关闭或刷新后需重新登录。':'当前为一次性登录，刷新后需重新登录。';}
  }
  async request(path,{method='GET',body,authenticated=true,retry=true}={}){
@@ -138,7 +152,7 @@ class TeachingCloud{
   return out.sort((a,b)=>(b.updatedAt||'').localeCompare(a.updatedAt||''));
  }
  async connect(session){
-  if((session?.user?.email||'').toLowerCase()!==ALLOWED_EMAIL){try{sessionStorage.removeItem(this.authKey());localStorage.removeItem(this.authKey());}catch{}this.session=null;this.user=null;this.ready=false;this.stage='local';this.error='仅允许指定账号登录。';this.render();return;}
+  if((session?.user?.email||'').toLowerCase()!==ALLOWED_EMAIL){try{sessionStorage.removeItem(this.authKey());localStorage.removeItem(this.authKey());localStorage.removeItem(this.rememberKey());}catch{}this.session=null;this.user=null;this.ready=false;this.stage='local';this.error='仅允许指定账号登录。';this.render();return;}
   this.epoch++;this.session=session;this.user=session.user;this.ready=false;this.dirty=false;this.conflict=null;this.stage='loading';this.error='';this.message='';this.persistSession();
   this.base=null;this.version=0;
   let cached=readStorage(localStorage,this.cacheKey());
@@ -227,7 +241,7 @@ class TeachingCloud{
   const key=this.authKey(),cache=this.cacheKey();
   try{await this.request('/auth/v1/logout?scope=local',{method:'POST'});}catch{/* local sign-out is still performed */}
   this.epoch++;this.session=null;this.user=null;this.ready=false;this.base=null;this.version=0;this.conflict=null;this.message='';this.error='';this.stage='local';
-  try{sessionStorage.removeItem(key);localStorage.removeItem(key);localStorage.removeItem(cache);}catch{}
+  try{sessionStorage.removeItem(key);localStorage.removeItem(key);localStorage.removeItem(this.rememberKey());localStorage.removeItem(cache);}catch{}
   this.o.apply(this.normalize(this.o.guest()));this.render();
  }
  async migrate(){
