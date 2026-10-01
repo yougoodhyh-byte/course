@@ -512,6 +512,28 @@ const ATTENDANCE_MATCHERS=[
  {test:n=>n.includes('专业认知'),display:n=>n==='专业认知'?'数字经济专业认知':n},
  {test:n=>n.includes('微观经济学'),display:n=>n}
 ];
+const RARE_NAME_PRONUNCIATION={
+ '胤':['yìn','/in˥˩/'],
+ '锴':['kǎi','/kʰaɪ̯˨˩˦/'],
+ '聆':['líng','/liŋ˧˥/'],
+ '雍':['yōng','/jʊŋ˥/'],
+ '灏':['hào','/xɑʊ̯˥˩/'],
+ '浠':['xī','/ɕi˥/'],
+ '韜':['tāo','/tʰɑʊ̯˥/'],
+ '濠':['háo','/xɑʊ̯˧˥/'],
+ '帼':['guó','/kwɔ˧˥/'],
+ '桢':['zhēn','/ʈʂən˥/'],
+ '贻':['yí','/i˧˥/'],
+ '妤':['yú','/y˧˥/']
+};
+function rareNamePronunciationText(name){
+ const parts=[];
+ for(const ch of String(name||'')){
+  const p=RARE_NAME_PRONUNCIATION[ch];
+  if(p)parts.push(ch+' '+p[0]+' '+p[1]);
+ }
+ return parts.join(' · ');
+}
 function attendanceRequiredCourses(){
  const seen=new Set(),out=[];
  for(const m of ATTENDANCE_MATCHERS){const c=data.courses.find(c=>m.test(c.name));if(c&&!seen.has(c.id)){seen.add(c.id);out.push({course:c,display:m.display(c.name)});}}
