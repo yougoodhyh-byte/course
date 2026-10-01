@@ -533,6 +533,17 @@ function clearAttendanceRandom(courseId,{render=true}={}){
  attendanceRandomStudents.delete(courseId);
  if(render)renderAttendance();
 }
+function attendanceInteractionIds(courseId,date=today){
+ const ids=data.attendance?.interactions?.[courseId]?.[date];
+ return Array.isArray(ids)?ids:[];
+}
+function recordAttendanceInteraction(courseId,studentId,date=today){
+ if(!data.attendance)data.attendance={courses:{}};
+ if(!data.attendance.interactions)data.attendance.interactions={};
+ if(!data.attendance.interactions[courseId])data.attendance.interactions[courseId]={};
+ const current=attendanceInteractionIds(courseId,date);
+ if(!current.includes(studentId))data.attendance.interactions[courseId][date]=[...current,studentId];
+}
 function toggleAttendanceStudents(courseId){
  const expanded=attendanceExpandedCourses.has(courseId);
  attendanceRandomStudents.delete(courseId);
