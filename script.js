@@ -205,6 +205,7 @@ let editingIds=[], editingBulk=false, editingNoteId=null, editingServiceId=null,
 const attendanceSearchQueries=new Map();
 const attendanceRandomStudents=new Map();
 const attendanceExpandedCourses=new Set();
+let attendanceMultiOpen=false;
 let hasNewRelease=false;
 try{
  const saved=localStorage.getItem(STORAGE_KEY);
@@ -603,6 +604,9 @@ function wireAttendanceAutoLocate(host){
  host.querySelectorAll('.attendance-course').forEach(details=>{
   details.addEventListener('toggle',()=>{
    if(!details.open)return;
+   if(!attendanceMultiOpen){
+    host.querySelectorAll('.attendance-course').forEach(other=>{if(other!==details&&other.open)other.open=false;});
+   }
    updateAttendanceTimingUI();
    requestAnimationFrame(()=>scrollAttendanceToNearest(details));
   });
@@ -944,6 +948,13 @@ document.addEventListener('change',event=>{
  else if(el.dataset.noteCheck){const n=data.notes.find(n=>n.id===el.dataset.noteCheck);if(n){n.done=el.checked;save();renderNotes();renderTodayReminders();}}
  else if(['bus-filter','bus-mode','bus-date'].includes(el.id))renderServices();
  else if(el.id==='bus-holiday'){if(el.checked)data.busHolidays[$('#bus-date').value]=true;else delete data.busHolidays[$('#bus-date').value];save();renderServices();}
+ else if(el.id==='attendance-multi-open'){
+  attendanceMultiOpen=el.checked;
+  if(!attendanceMultiOpen){
+   const openCourses=[...document.querySelectorAll('.attendance-course[open]')];
+   openCourses.slice(1).forEach(d=>d.open=false);
+  }
+ }
  else if(el.id==='attendance-file'){const file=el.files[0];if(file&&attendanceUploadCourseId)importAttendanceExcel(attendanceUploadCourseId,file).catch(error=>toast(error.message,true)).finally(()=>{el.value='';attendanceUploadCourseId=null;});}
  else if(el.classList.contains('attendance-status'))setAttendanceStatus(el);
  else if(el.id==='import-file')importJSON(el.files[0]);
