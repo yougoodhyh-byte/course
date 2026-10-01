@@ -334,3 +334,28 @@ body.auth-locked{overflow:hidden;background:#f7f3fa}.access-gate{position:fixed;
  .wechat-login-actions{width:100%}
  .wechat-login-actions .button{flex:1}
 }
+
+
+/* Current device date below the Teaching Workspace brand */
+@media(min-width:801px){
+  .sidebar>.brand{padding-bottom:12px}
+  .sidebar-date{
+    margin:0 14px 24px;
+    min-height:32px;
+    display:flex;
+    align-items:center;
+    color:#8b8799;
+    font-size:12px;
+    font-weight:500;
+    letter-spacing:.04em;
+  }
+}
+@media(max-width:800px){
+  .sidebar-date{
+    margin:-8px 0 13px 45px;
+    color:#8b8799;
+    font-size:11px;
+    font-weight:500;
+    letter-spacing:.03em;
+  }
+}
