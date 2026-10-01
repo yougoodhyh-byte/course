@@ -46,7 +46,7 @@ function validateConfig(value){
 function readStorage(storage,key){try{return JSON.parse(storage.getItem(key)||'null');}catch{return null;}}
 class TeachingCloud{
  constructor(options){
-  this.o=options;this.$=s=>document.querySelector(s);this.user=null;this.session=null;this.ready=false;this.base=null;this.version=0;this.dirty=false;this.conflict=null;this.syncing=false;this.epoch=0;this.storageError=false;this.message='';this.error='';this.stage='local';
+  this.o=options;this.$=s=>document.querySelector(s);this.user=null;this.session=null;this.ready=false;this.base=null;this.version=0;this.dirty=false;this.conflict=null;this.syncing=false;this.epoch=0;this.storageError=false;this.message='';this.error='';this.stage='local';this.wechat={loading:true,configured:false,bound:false,session:null,pollTimer:null,status:'',error:''};
   this.scope='teaching-cloud:'+location.pathname.replace(/index\.html$/,'');
   this.clientId=readStorage(sessionStorage,this.scope+':client');
   if(typeof this.clientId!=='string'){
@@ -66,7 +66,7 @@ class TeachingCloud{
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)this.sync();});
   document.addEventListener('close',()=>setTimeout(()=>this.sync(),40),true);
   window.addEventListener('beforeunload',e=>{if(this.dirty&&this.storageError){e.preventDefault();e.returnValue='';}});
-  this.restore();
+  this.restore();this.initWechat();
  }
  authKey(){return this.scope+':'+this.config.url+':session';}
  rememberKey(){return this.scope+':'+this.config.url+':remember';}
@@ -134,6 +134,112 @@ class TeachingCloud{
    }catch(e){this.stage='expired';this.error='登录已过期或网络不可用；待同步资料仍在本机。请重试或重新登录。';this.render();throw e;}
   })();
   try{await this.refreshing;}finally{this.refreshing=null;}
+ }
+
+ async wechatRequest(body,{useSession=false}={}){
+  if(!this.config)throw new Error('云端尚未配置。');
+  const headers={apikey:this.config.publishableKey,'Content-Type':'application/json'};
+  if(useSession&&this.session?.access_token)headers.Authorization='Bearer '+this.session.access_token;
+  const response=await fetch(this.config.url+'/functions/v1/wechat-auth',{
+   method:'POST',headers,body:JSON.stringify(body),cache:'no-store'
+  });
+  const text=await response.text();let result=null;try{result=text?JSON.parse(text):null;}catch{}
+  if(!response.ok)throw new Error(result?.error||result?.message||'微信登录服务暂时不可用。');
+  return result||{};
+ }
+ clearWechatPoll(){
+  if(this.wechat.pollTimer){clearInterval(this.wechat.pollTimer);this.wechat.pollTimer=null;}
+ }
+ async initWechat(){
+  if(!this.config){this.wechat.loading=false;this.renderWechat();return;}
+  try{
+   const status=await this.wechatRequest({action:'status'});
+   this.wechat.loading=false;this.wechat.configured=!!status.configured;this.wechat.bound=!!status.bound;this.wechat.error='';
+   this.renderWechat();
+   if(this.wechat.configured&&this.wechat.bound&&!this.user&&!this.wechat.session)this.startWechat('login');
+  }catch(e){
+   this.wechat.loading=false;this.wechat.error=e.message||'微信登录状态读取失败。';this.renderWechat();
+  }
+ }
+ renderWechat(){
+  const loading=this.$('#access-auth-loading'),passwordForm=this.$('#access-login-form'),panel=this.$('#wechat-login-panel');
+  const onlyWechat=this.wechat.configured&&this.wechat.bound;
+  if(loading)loading.hidden=!this.wechat.loading;
+  if(passwordForm)passwordForm.hidden=this.wechat.loading||onlyWechat;
+  if(panel)panel.hidden=!onlyWechat;
+  const status=this.$('#wechat-login-status');
+  if(status){
+   status.textContent=this.wechat.error||this.wechat.status||(onlyWechat?'请使用已绑定的微信扫码登录。':'');
+   status.classList.toggle('error',!!this.wechat.error);
+  }
+  const bindBox=this.$('#wechat-bind-section');
+  if(bindBox)bindBox.hidden=!this.user||!this.ready||!this.wechat.configured||this.wechat.bound;
+  const boundBox=this.$('#wechat-bound-section');
+  if(boundBox)boundBox.hidden=!this.wechat.bound;
+  const setupBox=this.$('#wechat-setup-section');
+  if(setupBox)setupBox.hidden=!this.user||!this.ready||this.wechat.configured;
+  const passwordCloud=this.$('#cloud-login-form');
+  if(passwordCloud&&onlyWechat&&!this.user)passwordCloud.hidden=true;
+ }
+ drawWechatQr(containerId,url){
+  const box=this.$(containerId);if(!box)return;
+  box.innerHTML='';
+  if(root.QRCode){
+   new root.QRCode(box,{text:url,width:220,height:220,correctLevel:root.QRCode.CorrectLevel.M});
+  }else{
+   const p=document.createElement('p');p.className='wechat-qr-fallback';p.textContent='二维码组件未加载，可点击下方按钮打开微信授权。';box.append(p);
+  }
+  const open=this.$(containerId==='wechat-login-qr'?'#wechat-login-open':'#wechat-bind-open');
+  if(open){open.href=url;open.hidden=false;}
+ }
+ async startWechat(mode='login'){
+  if(!this.wechat.configured)return;
+  this.clearWechatPoll();
+  this.wechat.status=mode==='bind'?'正在生成微信绑定二维码…':'正在生成微信登录二维码…';this.wechat.error='';this.renderWechat();
+  try{
+   const result=await this.wechatRequest({action:'start',mode},{useSession:mode==='bind'});
+   this.wechat.session={mode,session_id:result.session_id,poll_secret:result.poll_secret,expires_at:result.expires_at};
+   this.wechat.status=mode==='bind'?'请使用你本人微信扫码完成唯一绑定。':'请使用已绑定微信扫码登录。';
+   this.drawWechatQr(mode==='bind'?'#wechat-bind-qr':'#wechat-login-qr',result.auth_url);
+   this.renderWechat();
+   this.wechat.pollTimer=setInterval(()=>this.pollWechat().catch(()=>{}),1400);
+  }catch(e){
+   this.wechat.error=e.message||'二维码生成失败。';this.wechat.status='';this.renderWechat();
+  }
+ }
+ async pollWechat(){
+  const s=this.wechat.session;if(!s)return;
+  const result=await this.wechatRequest({action:'poll',session_id:s.session_id,poll_secret:s.poll_secret});
+  if(result.status==='pending')return;
+  this.clearWechatPoll();
+  if(result.status==='expired'||result.status==='consumed'){
+   this.wechat.session=null;this.wechat.status='二维码已失效，请刷新二维码。';this.renderWechat();return;
+  }
+  if(result.status==='denied'){
+   this.wechat.session=null;this.wechat.error='当前微信不是已绑定的唯一微信，无法登录。';this.renderWechat();return;
+  }
+  if(result.status==='bound'){
+   this.wechat.session=null;this.wechat.bound=true;this.wechat.status='微信绑定成功。今后仅允许该微信扫码进入。';this.renderWechat();
+   await this.forceLogoutAfterWechatBind();
+   return;
+  }
+  if(result.status==='approved'&&result.token_hash){
+   this.wechat.session=null;
+   const remember=!!this.$('#wechat-remember')?.checked;
+   const session=await this.request('/auth/v1/verify',{method:'POST',authenticated:false,body:{token_hash:result.token_hash,type:'email'}});
+   this.remember=remember;
+   await this.connect({...session,expires_at:session.expires_at||Math.floor(Date.now()/1000)+session.expires_in});
+   if(!this.remember&&this.user&&this.ready)this.o.afterTransientLogin?.();
+   this.wechat.status='';this.wechat.error='';this.renderWechat();
+  }
+ }
+ async forceLogoutAfterWechatBind(){
+  const key=this.authKey(),cache=this.user?this.cacheKey():null;
+  try{if(this.session)await this.request('/auth/v1/logout?scope=local',{method:'POST'});}catch{}
+  this.epoch++;this.session=null;this.user=null;this.ready=false;this.base=null;this.version=0;this.conflict=null;this.dirty=false;this.stage='local';this.message='';this.error='';
+  try{sessionStorage.removeItem(key);localStorage.removeItem(key);localStorage.removeItem(this.rememberKey());if(cache)localStorage.removeItem(cache);}catch{}
+  this.o.apply(this.normalize(this.o.guest()));this.render();this.renderWechat();
+  setTimeout(()=>this.startWechat('login'),100);
  }
  async login(e){
   e.preventDefault();if(this.syncing)return;
@@ -266,7 +372,7 @@ class TeachingCloud{
   const el=this.$('#save-status');el.textContent=labels[this.stage]||'仅本机';el.classList.toggle('unsaved',['error','offline','expired','conflict'].includes(this.stage));el.title=this.user?(this.dirty?'有修改尚未写入云端。':'云端账号：'+this.user.email):'当前编辑只保存在本机。配置云端并登录后才能跨设备同步。';
   this.$('#cloud-entry').textContent=this.user?'账号与同步':'登录同步';
   this.$('#cloud-unconfigured').hidden=!!this.config;
-  this.$('#cloud-login-form').hidden=!this.config||(!!this.user&&this.stage!=='expired');
+  this.$('#cloud-login-form').hidden=!this.config||(!!this.user&&this.stage!=='expired')||(this.wechat.configured&&this.wechat.bound&&!this.user);
   this.$('#cloud-account').hidden=!this.user;this.$('#cloud-user').textContent=this.user?.email||'';
   let message=!this.config?'尚未配置云端，当前仅本机保存。':!this.user?'登录后在不同设备同步同一账号资料。':this.dirty?'有修改尚未同步，请保持联网。':this.ready?'已连接云端，同一账号可跨设备使用。':'正在读取云端资料。';
   if(this.stage==='synced'&&this.lastSync)message+='\n最近同步：'+new Date(this.lastSync).toLocaleString('zh-CN');
@@ -274,6 +380,7 @@ class TeachingCloud{
   this.$('#cloud-message').textContent=message;this.$('#cloud-error').textContent=this.error;this.$('#cloud-error').hidden=!this.error;
   this.$('#cloud-conflict').hidden=!this.conflict;this.$('#cloud-conflict-detail').textContent=this.conflict?'检测到 '+this.conflict.paths.length+' 处冲突。已暂停自动上传，未静默覆盖任何版本。':'';
   this.$('#cloud-migrate-button').disabled=!this.user||!this.ready;
+  this.renderWechat();
  }
  bind(){
   const accessForm=this.$('#access-login-form');if(accessForm)accessForm.addEventListener('submit',async e=>{e.preventDefault();const pass=this.$('#access-password');this.$('#cloud-email').value=ALLOWED_EMAIL;this.$('#cloud-password').value=pass.value;this.$('#cloud-remember').checked=!!this.$('#access-remember')?.checked;await this.login({preventDefault(){}});pass.value='';});
@@ -300,6 +407,8 @@ class TeachingCloud{
    else if(action==='cloud-conflict-backup')this.backupConflict();
    else if(action==='cloud-conflict-local')await this.resolveConflict('local');
    else if(action==='cloud-conflict-remote')await this.resolveConflict('remote');
+   else if(action==='wechat-refresh')await this.startWechat('login');
+   else if(action==='wechat-bind')await this.startWechat('bind');
   });
  }
 }
