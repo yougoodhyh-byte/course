@@ -260,3 +260,45 @@ body.auth-locked{overflow:hidden;background:#f7f3fa}.access-gate{position:fixed;
 .attendance-multi-open{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;font-size:10px;color:#887694;cursor:pointer;user-select:none}
 .attendance-multi-open input{accent-color:var(--accent)}
 @media(max-width:650px){.attendance-head{align-items:flex-start}.attendance-multi-open{font-size:10px}}
+
+
+/* Prominent random attendance notice */
+.attendance-random-notice{
+  position:fixed;
+  left:50%;
+  top:22%;
+  transform:translate(-50%,-10px) scale(.98);
+  z-index:1400;
+  max-width:min(88vw,720px);
+  padding:20px 30px;
+  border:2px solid #e04a55;
+  border-radius:16px;
+  background:rgba(255,255,255,.98);
+  color:#d32638;
+  font-size:28px;
+  font-weight:800;
+  line-height:1.4;
+  text-align:center;
+  letter-spacing:.02em;
+  box-shadow:0 16px 48px rgba(145,34,49,.20);
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .2s ease,transform .2s ease;
+}
+.attendance-random-notice.show{
+  opacity:1;
+  transform:translate(-50%,0) scale(1);
+}
+@media(max-width:650px){
+  .attendance-random-notice{
+    top:19%;
+    width:calc(100vw - 34px);
+    padding:17px 18px;
+    border-radius:14px;
+    font-size:22px;
+  }
+}
+@media(max-width:380px){
+  .attendance-random-notice{font-size:20px}
+}
+@media print{.attendance-random-notice{display:none!important}}
