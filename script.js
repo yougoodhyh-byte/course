@@ -411,6 +411,8 @@ async function deleteEditing(){
 function reminderKey(note){return note.id+'|'+(note.date||'');}
 function renderTodayReminders(){
  const box=$('#today-reminders');if(!box)return;
+ // 仅“保持登录”的设备显示首页重要事项提醒；一次性登录仍可在“重要事项”栏目查看和处理事项。
+ if(!cloud?.remember){box.hidden=true;box.innerHTML='';return;}
  const due=data.notes.filter(n=>!n.done&&n.date===today&&!data.reminderDismissed?.[reminderKey(n)]);
  box.hidden=!due.length;
  box.innerHTML=due.length?due.map(n=>`<article class="today-reminder-card">
