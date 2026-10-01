@@ -508,9 +508,9 @@ function renderServices(){
  $('#service-list').innerHTML=data.services.length?`<div class="service-links">${data.services.map(s=>`<article class="service-link"><span class="service-icon" style="width:33px;height:33px;border-radius:10px">${icon('link')}</span><button class="icon-button service-edit" data-action="edit-service" data-service="${esc(s.id)}" aria-label="编辑服务：${esc(s.title)}">${icon('edit')}</button><h3>${esc(s.title)}</h3>${s.description?`<p>${esc(s.description)}</p>`:''}${s.url?`<a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">打开服务 ${icon('arrow-up-right')}</a>`:''}</article>`).join('')}</div>`:'';
 }
 const ATTENDANCE_MATCHERS=[
- {test:n=>n.includes('计量经济学'),display:n=>n},
+ {test:n=>n.includes('微观经济学'),display:n=>n},
  {test:n=>n.includes('专业认知'),display:n=>n==='专业认知'?'数字经济专业认知':n},
- {test:n=>n.includes('微观经济学'),display:n=>n}
+ {test:n=>n.includes('计量经济学'),display:n=>n}
 ];
 const RARE_NAME_PRONUNCIATION={
  '胤':['yìn','/in˥˩/'],
