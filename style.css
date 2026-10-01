@@ -267,20 +267,22 @@ body.auth-locked{overflow:hidden;background:#f7f3fa}.access-gate{position:fixed;
   position:fixed;
   left:50%;
   top:22%;
-  transform:translate(-50%,-10px) scale(.98);
+  transform:translate(-50%,-12px) scale(.96);
   z-index:1400;
-  max-width:min(88vw,720px);
-  padding:20px 30px;
-  border:2px solid #e04a55;
-  border-radius:16px;
-  background:rgba(255,255,255,.98);
-  color:#d32638;
-  font-size:28px;
-  font-weight:800;
-  line-height:1.4;
+  min-width:min(360px,82vw);
+  max-width:min(88vw,760px);
+  padding:24px 38px;
+  border:3px solid #7b57c7;
+  border-radius:18px;
+  background:#eee4ff;
+  color:#d21f32;
+  font-family:KaiTi,"STKaiti","Kaiti SC","楷体",serif;
+  font-size:52px;
+  font-weight:700;
+  line-height:1.25;
   text-align:center;
-  letter-spacing:.02em;
-  box-shadow:0 16px 48px rgba(145,34,49,.20);
+  letter-spacing:.06em;
+  box-shadow:0 18px 52px rgba(87,57,145,.28),inset 0 0 0 1px rgba(255,255,255,.55);
   opacity:0;
   pointer-events:none;
   transition:opacity .2s ease,transform .2s ease;
@@ -293,12 +295,13 @@ body.auth-locked{overflow:hidden;background:#f7f3fa}.access-gate{position:fixed;
   .attendance-random-notice{
     top:19%;
     width:calc(100vw - 34px);
-    padding:17px 18px;
-    border-radius:14px;
-    font-size:22px;
+    min-width:0;
+    padding:22px 18px;
+    border-radius:16px;
+    font-size:42px;
   }
 }
 @media(max-width:380px){
-  .attendance-random-notice{font-size:20px}
+  .attendance-random-notice{font-size:36px}
 }
 @media print{.attendance-random-notice{display:none!important}}
