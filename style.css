@@ -254,3 +254,9 @@ body.auth-locked{overflow:hidden;background:#f7f3fa}.access-gate{position:fixed;
  #attendance-student-dialog .form-grid{grid-template-columns:1fr}
  .attendance-student-edit{opacity:.8}
 }
+
+
+/* Attendance course accordion: single-open by default; multi-open only when explicitly enabled. */
+.attendance-multi-open{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;font-size:10px;color:#887694;cursor:pointer;user-select:none}
+.attendance-multi-open input{accent-color:var(--accent)}
+@media(max-width:650px){.attendance-head{align-items:flex-start}.attendance-multi-open{font-size:10px}}
