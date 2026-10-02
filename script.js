@@ -200,6 +200,7 @@ const published=C.normalizeBuses(JSON.parse($('#seed-data').textContent));
 let cloud=null, cloudRenderPending=false, guestSnapshot=null, guestWasDirty=false, legacyReadFailed=false;
 const STORAGE_KEY='teaching-workspace:2026-fall:v1:'+location.pathname.replace(/index\.html$/,'');
 let data=clone(published), today=C.localISO(), selectedWeeks=new Set([C.defaultWeek(today)]), currentTab='schedule', courseFilter='', showEmpty=false, viewMode='grid', noteFilter='all', calendarTerm='fall';
+let scheduleControlsExpanded=true,scheduleControlsHideTimer=null,lastScheduleScrollY=window.scrollY;
 let dirty=false, publishedRevision=published.revision, cacheWriteFailed=false;
 let editingIds=[], editingBulk=false, editingNoteId=null, editingServiceId=null, managementGroups=[], attendanceUploadCourseId=null, editingAttendanceCourseId=null, editingAttendanceStudentId=null;
 const attendanceSearchQueries=new Map();
@@ -263,12 +264,59 @@ async function confirmAction(message,title='请确认',yesText='确认'){
  return await new Promise(resolve=>dlg.addEventListener('close',()=>resolve(dlg.returnValue==='confirm'),{once:true}));
 }
 function closeDialog(button){button.closest('dialog')?.close();}
+function scheduleControlsMobile(){return window.matchMedia('(max-width:800px)').matches;}
+function updateScheduleControlsSummary(){
+ const el=$('#schedule-controls-summary');if(!el)return;
+ const weeks=[...selectedWeeks].sort((a,b)=>a-b);
+ const weekText=weeks.length===1?'第'+weeks[0]+'周':weeks.length>1?(weeks.length+'个周次'):'未选周次';
+ const course=courseFilter?data.courses.find(c=>c.id===courseFilter)?.name||'已筛选课程':'全部课程';
+ el.textContent=weekText+' · '+course;
+ const button=document.querySelector('.schedule-controls-toggle');
+ if(button)button.setAttribute('aria-expanded',String(scheduleControlsExpanded));
+}
+function clearScheduleControlsHide(){if(scheduleControlsHideTimer){clearTimeout(scheduleControlsHideTimer);scheduleControlsHideTimer=null;}}
+function setScheduleControlsExpanded(expanded){
+ scheduleControlsExpanded=!!expanded;
+ const panel=document.querySelector('.schedule-controls');
+ if(panel)panel.classList.toggle('is-auto-collapsed',!scheduleControlsExpanded);
+ updateScheduleControlsSummary();
+ if(!scheduleControlsExpanded&&$('#week-picker')?.open)$('#week-picker').open=false;
+}
+function scheduleScheduleControlsHide(delay=3600){
+ clearScheduleControlsHide();
+ if(!scheduleControlsMobile()||currentTab!=='schedule'||!scheduleControlsExpanded)return;
+ scheduleControlsHideTimer=setTimeout(()=>{
+  const panel=document.querySelector('.schedule-controls');
+  if(!panel||$('#week-picker')?.open||panel.contains(document.activeElement)){scheduleScheduleControlsHide(1800);return;}
+  setScheduleControlsExpanded(false);
+ },delay);
+}
+function initScheduleControlsAutoHide(){
+ updateScheduleControlsSummary();
+ if(scheduleControlsMobile()){setScheduleControlsExpanded(true);scheduleScheduleControlsHide(3200);}
+ window.addEventListener('resize',()=>{
+  clearScheduleControlsHide();
+  if(!scheduleControlsMobile()){setScheduleControlsExpanded(true);return;}
+  updateScheduleControlsSummary();scheduleScheduleControlsHide(2600);
+ },{passive:true});
+ window.addEventListener('scroll',()=>{
+  if(!scheduleControlsMobile()||currentTab!=='schedule'||!scheduleControlsExpanded)return;
+  const y=window.scrollY;
+  if(y>lastScheduleScrollY+10&&!$('#week-picker')?.open)setScheduleControlsExpanded(false);
+  lastScheduleScrollY=y;
+ },{passive:true});
+ const panel=document.querySelector('.schedule-controls');
+ panel?.addEventListener('pointerdown',()=>{clearScheduleControlsHide();});
+ panel?.addEventListener('focusin',()=>{clearScheduleControlsHide();});
+ panel?.addEventListener('focusout',()=>{if(scheduleControlsMobile())scheduleScheduleControlsHide(2600);});
+}
 function showTab(tab){
  currentTab=['schedule','notes','services'].includes(tab)?tab:'schedule';
  $$('.page-section').forEach(s=>s.hidden=s.id!=='section-'+currentTab);
  $$('[data-nav]').forEach(b=>{const active=b.dataset.nav===currentTab;b.classList.toggle('active',active);if(active)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
  $('#breadcrumb-current').textContent={schedule:'教学课程时间',notes:'重要事项',services:'其他服务'}[currentTab];
  if(currentTab==='notes')renderNotes();if(currentTab==='services'){$$('.service-fold,.attendance-course').forEach(d=>d.open=false);renderServices();}
+ if(currentTab==='schedule'&&scheduleControlsMobile()){setScheduleControlsExpanded(true);scheduleScheduleControlsHide(3200);}
 }
 function renderClock(){
  const week=C.currentWeek(today),range=week?C.weekRange(week):null;
@@ -954,6 +1002,10 @@ document.addEventListener('click',async event=>{
  const action=b.dataset.action;
  switch(action){
  case 'close-dialog':closeDialog(b);break;
+ case 'toggle-schedule-controls':
+  setScheduleControlsExpanded(!scheduleControlsExpanded);
+  if(scheduleControlsExpanded)scheduleScheduleControlsHide(5200);
+  break;
  case 'add-course':openCourse();break;
  case 'add-course-week':openCourse([],{week:Number(b.dataset.week)});break;
  case 'add-course-slot':openCourse([],{week:Number(b.dataset.week),day:Number(b.dataset.day),slot:b.dataset.slot});break;
@@ -1007,14 +1059,18 @@ document.addEventListener('click',async event=>{
  case 'keep-local':hasNewRelease=false;publishedRevision=published.revision;save();refreshAll();toast('已保留本机数据。');break;
  case 'print':$('#week-picker').open=false;window.print();break;
  }
+ if(['prev-week','next-week','current-week','view-all-weeks','view-current-only','remove-week','close-week-picker','toggle-empty','view-grid','view-daily'].includes(action)){
+  updateScheduleControlsSummary();
+  if(scheduleControlsMobile()&&action!=='view-all-weeks')scheduleScheduleControlsHide(1800);
+ }
 });
 document.addEventListener('change',event=>{
  const el=event.target;
  if(el.name==='view-week'){
   if(el.checked)selectedWeeks.add(Number(el.value));else if(selectedWeeks.size>1)selectedWeeks.delete(Number(el.value));else{el.checked=true;toast('请至少保留一个周次。');return;}
-  refreshSchedule();
- }else if(el.id==='course-filter'){courseFilter=el.value;refreshSchedule();}
- else if(el.id==='show-empty'){showEmpty=el.checked;refreshSchedule();}
+  refreshSchedule();updateScheduleControlsSummary();if(scheduleControlsMobile())scheduleScheduleControlsHide(1800);
+ }else if(el.id==='course-filter'){courseFilter=el.value;refreshSchedule();updateScheduleControlsSummary();if(scheduleControlsMobile())scheduleScheduleControlsHide(1400);}
+ else if(el.id==='show-empty'){showEmpty=el.checked;refreshSchedule();if(scheduleControlsMobile())scheduleScheduleControlsHide(1400);}
  else if(el.name==='edit-week'||el.name==='edit-slot')updateTargetCount();
  else if(el.dataset.noteCheck){const n=data.notes.find(n=>n.id===el.dataset.noteCheck);if(n){n.done=el.checked;save();renderNotes();renderTodayReminders();}}
  else if(['bus-filter','bus-mode','bus-date'].includes(el.id))renderServices();
@@ -1082,7 +1138,7 @@ setInterval(checkDate,30000);
 setInterval(()=>{if(currentTab==='services'&&$('#attendance-fold')?.open)updateAttendanceTimingUI();},30000);
 // Always start with the true current week (or the nearest semester boundary),
 // never with a previously chosen review week from localStorage.
-refreshAll();showTab(['notes','services'].includes(location.hash.slice(1))?location.hash.slice(1):'schedule');
+refreshAll();showTab(['notes','services'].includes(location.hash.slice(1))?location.hash.slice(1):'schedule');initScheduleControlsAutoHide();
 if(!hasNewRelease&&!legacyReadFailed)save(dirty?'已读取本机修改':'已载入课表',false);
 
 
