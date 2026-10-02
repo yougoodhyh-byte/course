@@ -315,7 +315,15 @@ function showTab(tab){
  $$('.page-section').forEach(s=>s.hidden=s.id!=='section-'+currentTab);
  $$('[data-nav]').forEach(b=>{const active=b.dataset.nav===currentTab;b.classList.toggle('active',active);if(active)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
  $('#breadcrumb-current').textContent={schedule:'教学课程时间',notes:'重要事项',services:'其他服务'}[currentTab];
- if(currentTab==='notes')renderNotes();if(currentTab==='services'){$$('.service-fold,.attendance-course').forEach(d=>d.open=false);renderServices();}
+ if(currentTab==='notes')renderNotes();if(currentTab==='services'){
+  attendanceMultiOpen=false;
+  attendanceExpandedCourses.clear();
+  attendanceRandomStudents.clear();
+  attendanceSearchQueries.clear();
+  const multi=$('#attendance-multi-open');if(multi)multi.checked=false;
+  $$('.service-fold,.attendance-course').forEach(d=>d.open=false);
+  renderServices();
+ }
  if(currentTab==='schedule'&&scheduleControlsMobile()){setScheduleControlsExpanded(true);scheduleScheduleControlsHide(3200);}
 }
 function renderClock(){
@@ -722,7 +730,26 @@ function wireAttendanceAutoLocate(host){
  updateAttendanceTimingUI();
  host.querySelectorAll('.attendance-course').forEach(details=>{
   details.addEventListener('toggle',()=>{
-   if(!details.open)return;
+   const courseId=details.dataset.attendanceCourse;
+   if(!details.open){
+    attendanceExpandedCourses.delete(courseId);
+    attendanceRandomStudents.delete(courseId);
+    attendanceSearchQueries.delete(courseId);
+    const search=details.querySelector('[data-attendance-search]');if(search)search.value='';
+    const expand=details.querySelector('.attendance-expand-button');if(expand)expand.textContent='展开学生信息';
+    details.querySelector('.attendance-random-result')?.remove();
+    const table=details.querySelector('.attendance-table-scroll');if(table)table.hidden=true;
+    details.querySelectorAll('[data-attendance-student-row]').forEach(row=>{row.hidden=true;row.classList.remove('attendance-random-selected');});
+    let placeholder=details.querySelector('.attendance-query-placeholder');
+    if(!placeholder&&table){
+     placeholder=document.createElement('div');
+     placeholder.className='attendance-query-placeholder';
+     placeholder.textContent='请点击“课堂互动”、搜索姓名 / 学号，或展开全部学生信息。';
+     table.before(placeholder);
+    }
+    if(placeholder)placeholder.hidden=false;
+    return;
+   }
    if(!attendanceMultiOpen){
     host.querySelectorAll('.attendance-course').forEach(other=>{if(other!==details&&other.open)other.open=false;});
    }
