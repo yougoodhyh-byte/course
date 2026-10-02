@@ -573,18 +573,18 @@ const ATTENDANCE_MATCHERS=[
  {test:n=>n.includes('计量经济学'),display:n=>n}
 ];
 const RARE_NAME_PRONUNCIATION={
- '胤':'yin 4',
- '锴':'kai 3',
- '聆':'ling 2',
- '雍':'yong 1',
- '灏':'hao 4',
- '浠':'xi 1',
- '韜':'tao 1',
- '濠':'hao 2',
- '帼':'guo 2',
- '桢':'zhen 1',
- '贻':'yi 2',
- '妤':'yu 2'
+ '胤':'yìn',
+ '锴':'kǎi',
+ '聆':'líng',
+ '雍':'yōng',
+ '灏':'hào',
+ '浠':'xī',
+ '韜':'tāo',
+ '濠':'háo',
+ '帼':'guó',
+ '桢':'zhēn',
+ '贻':'yí',
+ '妤':'yú'
 };
 function attendanceRandomNameHTML(name){
  return [...String(name||'')].map(ch=>{
