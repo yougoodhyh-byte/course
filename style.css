@@ -475,3 +475,27 @@ input::placeholder,textarea::placeholder{
   body{font-weight:400}
   .nav-item,.button,.side-data{font-weight:600}
 }
+
+
+/* Mobile schedule controls: auto-collapse the highlighted filter/navigation area. */
+.schedule-controls-toggle{display:none}
+@media(max-width:800px){
+ .schedule-controls{padding:0;overflow:visible}
+ .schedule-controls-toggle{
+  width:100%;min-height:44px;padding:9px 12px;display:flex;align-items:center;gap:9px;
+  background:#fff;border:0;border-radius:var(--radius);color:#6f687d;text-align:left
+ }
+ .schedule-controls-toggle-main{display:flex;align-items:center;gap:7px;white-space:nowrap}
+ .schedule-controls-toggle-main .icon{width:15px;height:15px;color:var(--accent)}
+ .schedule-controls-toggle strong{font-size:11px;font-weight:600;color:#5f586d}
+ .schedule-controls-toggle small{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;color:#9a91a7}
+ .schedule-controls-toggle-chevron{margin-left:auto;display:flex;transition:transform .18s}
+ .schedule-controls-toggle-chevron .icon{width:15px;height:15px}
+ .schedule-controls-content{padding:3px 13px 13px}
+ .schedule-controls.is-auto-collapsed .schedule-controls-content{display:none}
+ .schedule-controls.is-auto-collapsed .schedule-controls-toggle-chevron{transform:rotate(-90deg)}
+ .schedule-controls.is-auto-collapsed .schedule-controls-toggle{border-radius:var(--radius)}
+}
+@media(min-width:801px){
+ .schedule-controls-content{display:block!important}
+}
