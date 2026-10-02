@@ -237,10 +237,9 @@ function attendanceRandomNotice(name){
  el.setAttribute('aria-live','polite');
  el.setAttribute('aria-label',name+'同学');
  const line=document.createElement('div');line.className='attendance-random-person';
- const nameEl=document.createElement('span');nameEl.className='attendance-random-person-name';nameEl.textContent=name;
+ const nameEl=document.createElement('span');nameEl.className='attendance-random-person-name';nameEl.innerHTML=attendanceRandomNameHTML(name);
  const suffix=document.createElement('span');suffix.className='attendance-random-person-suffix';suffix.textContent='同学';
  line.append(nameEl,suffix);el.append(line);
- const pronunciation=rareNamePronunciationText(name);if(pronunciation)el.dataset.pronunciation=pronunciation;
  document.body.append(el);
  requestAnimationFrame(()=>el.classList.add('show'));
  setTimeout(()=>{el.classList.remove('show');setTimeout(()=>el.remove(),220);},3000);
@@ -574,26 +573,26 @@ const ATTENDANCE_MATCHERS=[
  {test:n=>n.includes('计量经济学'),display:n=>n}
 ];
 const RARE_NAME_PRONUNCIATION={
- '胤':['yìn','/in˥˩/'],
- '锴':['kǎi','/kʰaɪ̯˨˩˦/'],
- '聆':['líng','/liŋ˧˥/'],
- '雍':['yōng','/jʊŋ˥/'],
- '灏':['hào','/xɑʊ̯˥˩/'],
- '浠':['xī','/ɕi˥/'],
- '韜':['tāo','/tʰɑʊ̯˥/'],
- '濠':['háo','/xɑʊ̯˧˥/'],
- '帼':['guó','/kwɔ˧˥/'],
- '桢':['zhēn','/ʈʂən˥/'],
- '贻':['yí','/i˧˥/'],
- '妤':['yú','/y˧˥/']
+ '胤':'yin 4',
+ '锴':'kai 3',
+ '聆':'ling 2',
+ '雍':'yong 1',
+ '灏':'hao 4',
+ '浠':'xi 1',
+ '韜':'tao 1',
+ '濠':'hao 2',
+ '帼':'guo 2',
+ '桢':'zhen 1',
+ '贻':'yi 2',
+ '妤':'yu 2'
 };
-function rareNamePronunciationText(name){
- const parts=[];
- for(const ch of String(name||'')){
-  const p=RARE_NAME_PRONUNCIATION[ch];
-  if(p)parts.push(ch+' '+p[0]+' '+p[1]);
- }
- return parts.join(' · ');
+function attendanceRandomNameHTML(name){
+ return [...String(name||'')].map(ch=>{
+  const pronunciation=RARE_NAME_PRONUNCIATION[ch];
+  return pronunciation
+   ?'<span class="attendance-random-char is-rare"><span class="attendance-random-pinyin">'+esc(pronunciation)+'</span><span>'+esc(ch)+'</span></span>'
+   :'<span class="attendance-random-char"><span>'+esc(ch)+'</span></span>';
+ }).join('');
 }
 function attendanceRequiredCourses(){
  const seen=new Set(),out=[];
@@ -809,7 +808,7 @@ function renderAttendance(){
   const openAttr=openIds.has(course.id)?' open':'';
   html+='<details class="attendance-course'+(activeDate?' is-class-active':'')+'" data-attendance-course="'+esc(course.id)+'" data-nearest-date="'+esc(nearestDate||'')+'" data-nearest-distance="'+(Number.isFinite(timing.nearestDistance)?String(timing.nearestDistance):'')+'" data-active-date="'+esc(activeDate||'')+'"'+openAttr+'><summary><span><strong>'+esc(display)+'</strong><small>'+fileInfo+(activeDate?' · 正在上课':'')+'</small></span><span class="service-fold-chevron">'+icon('chevron-down')+'</span></summary><div class="attendance-course-body">';
   html+='<div class="attendance-toolbar"><div><strong>'+esc(display)+'</strong><small>'+dates.length+' 个上课日期 · “-”未登记，“1”到勤，“-1”缺勤</small></div>'+(students.length?'<div class="attendance-toolbar-actions"><button class="button small attendance-random-button" data-action="attendance-random" data-course="'+esc(course.id)+'">课堂互动</button><label class="attendance-search"><input type="search" value="'+esc(attendanceSearchQueries.get(course.id)||'')+'" placeholder="搜索姓名或学号" data-attendance-search="'+esc(course.id)+'" autocomplete="off" aria-label="'+esc(display)+'搜索学生"></label><button class="button small attendance-expand-button" data-action="attendance-toggle-students" data-course="'+esc(course.id)+'">'+(expanded?'收起学生信息':'展开学生信息')+'</button></div>':'')+'</div>';
-  if(randomStudent)html+='<div class="attendance-random-result"><span>本次互动：<span class="attendance-random-inline-person"><strong>'+esc(randomStudent.name)+'</strong><em>同学</em></span><small>学号 '+esc(randomStudent.studentNo)+'</small></span><button class="button small" data-action="attendance-random-clear" data-course="'+esc(course.id)+'">清除结果</button></div>';
+  if(randomStudent)html+='<div class="attendance-random-result"><span>本次互动：<span class="attendance-random-inline-person"><strong>'+attendanceRandomNameHTML(randomStudent.name)+'</strong><em>同学</em></span><small>学号 '+esc(randomStudent.studentNo)+'</small></span><button class="button small" data-action="attendance-random-clear" data-course="'+esc(course.id)+'">清除结果</button></div>';
   if(students.length&&!expanded&&!randomStudentId&&!query)html+='<div class="attendance-query-placeholder">请点击“课堂互动”、搜索姓名 / 学号，或展开全部学生信息。</div>';
   html+=table;
   html+='<div class="attendance-bottom-actions">'+(students.length?'<button class="button" data-action="attendance-export-course" data-course="'+esc(course.id)+'">'+icon('download')+'导出考勤</button>':'')+'<button class="button primary" data-action="attendance-upload" data-course="'+esc(course.id)+'">'+(students.length?'替换 Excel':'上传 Excel')+'</button></div>';
