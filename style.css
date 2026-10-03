@@ -694,3 +694,38 @@ input::placeholder,textarea::placeholder{
 @media(max-width:650px){.bus-all-fold>summary{padding:14px 16px}}
 @media print{.bus-all-fold>summary{display:none}.bus-all-fold>.table-scroll{display:block!important}}
 .bus-nearest-card{position:relative}.bus-card-badge{display:block;width:fit-content;border-radius:7px;background:#e8f3ff;color:#2475c7;font-size:11px;padding:3px 7px;margin:7px 0}.bus-time .bus-nearest-label{display:block;width:fit-content;max-width:12em;white-space:normal;line-height:1.6;font-size:11px;padding:2px 7px;margin:6px 0 0;border-radius:7px}
+
+
+/* Random attendance: show full-name pinyin and explicit tone number above every Chinese character. */
+.attendance-random-char.is-pronounced{
+  padding-top:.52em;
+}
+.attendance-random-pinyin{
+  display:inline-flex;
+  align-items:flex-start;
+  gap:1px;
+}
+.attendance-random-tone{
+  position:static;
+  margin-left:1px;
+  color:#75647f;
+  font-size:.72em;
+  font-weight:800;
+  line-height:1;
+  vertical-align:super;
+}
+.attendance-random-person-name .attendance-random-char.is-pronounced{
+  padding-top:.58em;
+}
+.attendance-random-person-name .attendance-random-pinyin{
+  font-size:.34em;
+}
+.attendance-random-inline-person .attendance-random-char.is-pronounced{
+  padding-top:14px;
+}
+.attendance-random-inline-person .attendance-random-pinyin{
+  font-size:11px;
+}
+.attendance-random-inline-person .attendance-random-tone{
+  font-size:7.5px;
+}
