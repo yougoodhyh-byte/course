@@ -625,3 +625,21 @@ input::placeholder,textarea::placeholder{
   .attendance-name-tone{font-size:7.5px}
   .attendance-name-hanzi,.attendance-name-plain{font-size:12px}
 }
+
+
+/* Automatically locate the bus closest to the current device time. */
+.bus-table tr.bus-nearest-row td{background:#faf7fc}
+.bus-table tr.bus-nearest-row .bus-time{color:#6956d9;font-weight:700}
+.bus-nearest-label{
+ display:inline-flex;
+ align-items:center;
+ margin-left:7px;
+ padding:2px 5px;
+ border-radius:999px;
+ background:#f1ecfb;
+ color:#7960a0;
+ font-size:8px;
+ font-weight:600;
+ line-height:1.25;
+ vertical-align:middle;
+}
