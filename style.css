@@ -567,3 +567,61 @@ input::placeholder,textarea::placeholder{
   font-weight:700;
   transform:translate(-50%,0);
 }
+
+
+/* Full attendance-name pinyin: tone-marked pinyin + explicit tone number above every Chinese character. */
+.attendance-table .attendance-name{min-width:168px}
+.attendance-student-name{
+  display:inline-flex;
+  align-items:flex-end;
+  max-width:none;
+  overflow:visible;
+  text-overflow:clip;
+  white-space:nowrap;
+  vertical-align:middle;
+  padding-top:13px;
+  line-height:1.05;
+}
+.attendance-name-ruby{
+  ruby-position:over;
+  ruby-align:center;
+  margin:0 1px;
+  line-height:1;
+}
+.attendance-name-ruby rt{
+  color:#5f5268;
+  font-family:Arial,"Noto Sans",sans-serif;
+  font-size:11.5px;
+  font-weight:700;
+  line-height:.92;
+  letter-spacing:0;
+  white-space:nowrap;
+  transform:translateY(2px);
+}
+.attendance-name-pinyin{white-space:nowrap}
+.attendance-name-tone{
+  margin-left:1px;
+  color:#75647f;
+  font-size:8px;
+  font-weight:800;
+  line-height:1;
+  vertical-align:super;
+}
+.attendance-name-hanzi,.attendance-name-plain{
+  color:#2b2630;
+  font-size:12px;
+  font-weight:600;
+}
+.attendance-random-pinyin{
+  font-size:.39em;
+  line-height:.94;
+}
+.attendance-random-inline-person .attendance-random-char.is-rare{padding-top:12px}
+.attendance-random-inline-person .attendance-random-pinyin{font-size:11px}
+@media(max-width:650px){
+  .attendance-table .attendance-name{min-width:154px}
+  .attendance-student-name{padding-top:12px}
+  .attendance-name-ruby rt{font-size:11px}
+  .attendance-name-tone{font-size:7.5px}
+  .attendance-name-hanzi,.attendance-name-plain{font-size:12px}
+}
