@@ -684,3 +684,13 @@ input::placeholder,textarea::placeholder{
  .bus-nearest-summary{grid-template-columns:1fr;padding:10px 12px}
  .bus-nearest-card{padding:10px 11px}
 }
+
+.bus-all-fold{border-top:1px solid #e6edf5}
+.bus-all-fold>summary{display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;padding:16px 20px;color:#315780;font-size:14px;list-style:none}
+.bus-all-fold>summary::-webkit-details-marker{display:none}
+.bus-all-fold>summary:focus-visible{outline:3px solid #b4d2f1;outline-offset:-3px}
+.bus-all-fold .bus-all-hint:after{content:'展开班次 ▾';font-size:12px;color:#7d8fa6}
+.bus-all-fold[open] .bus-all-hint:after{content:'收起班次 ▴'}
+@media(max-width:650px){.bus-all-fold>summary{padding:14px 16px}}
+@media print{.bus-all-fold>summary{display:none}.bus-all-fold>.table-scroll{display:block!important}}
+.bus-nearest-card{position:relative}.bus-card-badge{display:block;width:fit-content;border-radius:7px;background:#e8f3ff;color:#2475c7;font-size:11px;padding:3px 7px;margin:7px 0}.bus-time .bus-nearest-label{display:block;width:fit-content;max-width:12em;white-space:normal;line-height:1.6;font-size:11px;padding:2px 7px;margin:6px 0 0;border-radius:7px}

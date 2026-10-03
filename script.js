@@ -325,7 +325,7 @@ function showTab(tab){
   attendanceRandomStudents.clear();
   attendanceSearchQueries.clear();
   const multi=$('#attendance-multi-open');if(multi)multi.checked=false;
-  $$('.service-fold,.attendance-course').forEach(d=>d.open=false);
+  $$('.service-fold,.attendance-course,#bus-all-fold').forEach(d=>d.open=false);
   renderServices();
  }
  if(currentTab==='schedule'&&scheduleControlsMobile()){setScheduleControlsExpanded(true);scheduleScheduleControlsHide(3200);}
@@ -562,7 +562,7 @@ function nearestBusId(buses,now=new Date()){
  return best?.id||'';
 }
 function locateNearestBus({behavior='smooth'}={}){
- const fold=$('#bus-fold');if(!fold?.open)return;
+ const fold=$('#bus-fold');if(!fold?.open||!$('#bus-all-fold')?.open)return;
  requestAnimationFrame(()=>{
   const row=$('#bus-body tr.bus-nearest-row');if(!row)return;
   row.scrollIntoView({behavior,block:'center',inline:'nearest'});
@@ -571,25 +571,19 @@ function locateNearestBus({behavior='smooth'}={}){
 function wireBusAutoLocate(){
  const fold=$('#bus-fold');if(!fold||fold.dataset.autoLocateWired)return;
  fold.dataset.autoLocateWired='1';
- fold.addEventListener('toggle',()=>{if(fold.open)locateNearestBus({behavior:'smooth'});});
+ fold.addEventListener('toggle',()=>{if(!fold.open)$('#bus-all-fold').open=false;});
+ $('#bus-all-fold').addEventListener('toggle',()=>{if($('#bus-all-fold').open)locateNearestBus({behavior:'smooth'});});
 }
-function renderServices(){
- const cal=calendarData();$('#calendar-service-title').textContent=cal?.title||'学年校历';$('#calendar-current-summary').textContent=academicStatus(today);$('#calendar-fall-meta').textContent=cal?.fall?.weeks?('秋季 '+cal.fall.weeks+' 周'):'';$('#calendar-spring-meta').textContent=cal?.spring?.weeks?('春季 '+cal.spring.weeks+' 周'):'';
+function busBeijing(){return Object.fromEntries(new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date()).map(x=>[x.type,x.value]));}
+function renderShuttle(){
+ const cal=calendarData(),clock=busBeijing(),busToday=clock.year+'-'+clock.month+'-'+clock.day;
  const stops=[...new Set(data.buses.flatMap(b=>[b.from,b.to]).filter(Boolean))],outStop=stops[0]||'',backStop=stops[1]||'';$('#bus-route-summary').textContent=outStop&&backStop?(outStop+' ⇄ '+backStop):'';const outOpt=$('#bus-filter option[value="out"]'),backOpt=$('#bus-filter option[value="back"]');if(outOpt)outOpt.textContent=outStop&&backStop?(outStop+' → '+backStop):'去程';if(backOpt)backOpt.textContent=outStop&&backStop?(backStop+' → '+outStop):'返程';
  const direction=$('#bus-filter').value,mode=$('#bus-mode').value;
- if(!$('#bus-date').value)$('#bus-date').value=today;
+ if(!$('#bus-date').value)$('#bus-date').value=busToday;
  const date=$('#bus-date').value,holiday=!!data.busHolidays?.[date];
  const buses=C.busesFor(data.buses,date,mode,holiday).filter(b=>direction==='all'||(direction==='out'?b.from===outStop:b.from===backStop)).sort((a,b)=>a.departure.localeCompare(b.departure)||a.order-b.order);
- const busNow=new Date(),nearestIds=new Set();
- if(direction==='all'){
-  const outNearest=nearestBusId(buses.filter(b=>b.from===outStop),busNow);
-  const backNearest=nearestBusId(buses.filter(b=>b.from===backStop),busNow);
-  if(outNearest)nearestIds.add(outNearest);
-  if(backNearest)nearestIds.add(backNearest);
- }else{
-  const nearest=nearestBusId(buses,busNow);if(nearest)nearestIds.add(nearest);
- }
- const nearestBuses=buses.filter(b=>nearestIds.has(b.id));
+ const live=mode==='date'&&date===busToday,nearestIds=new Set(),origins=direction==='all'?[outStop,backStop]:[direction==='out'?outStop:backStop],mins=Number(clock.hour)*60+Number(clock.minute);
+ const nearestBuses=live?origins.map(origin=>buses.find(b=>b.from===origin&&busClockMinutes(b.departure)>=mins)).filter(Boolean):[];nearestBuses.forEach(b=>nearestIds.add(b.id));
  const weekday=Number.isFinite(C.dayValue(date))?new Date(C.dayValue(date)*86400000).getUTCDay():null;
  $('#bus-date-label').hidden=mode!=='date';
  $('#bus-holiday-control').hidden=mode!=='date'||weekday!==3||date<'2026-09-21'||date>'2027-01-10';
@@ -601,12 +595,15 @@ function renderServices(){
  $('#bus-rule-summary').textContent=mode==='date'?'按原表筛选；条件增班及节假日运行情况请核对学校通知。':'含条件增班，适用范围见各行说明。';
  const nearestSummary=$('#bus-nearest-summary');
  if(nearestSummary){
-  nearestSummary.hidden=!nearestBuses.length;
-  nearestSummary.innerHTML=nearestBuses.map(b=>'<div class="bus-nearest-card"><span>'+esc(b.from)+'发车</span><strong>'+esc(b.departure)+'</strong><small>'+esc(b.from)+' → '+esc(b.to)+'</small></div>').join('');
+  nearestSummary.hidden=!live;
+  nearestSummary.innerHTML=live?origins.map(origin=>{const b=nearestBuses.find(b=>b.from===origin);return '<div class="bus-nearest-card"><span>'+esc(origin)+'发车</span>'+(b?'<b class="bus-card-badge">距离我最近的一趟</b>':'')+'<strong>'+esc(b?.departure||'今日已结束')+'</strong><small>'+esc(origin)+' → '+esc(origin===outStop?backStop:outStop)+'</small></div>';}).join(''):'';
  }
- $('#bus-body').innerHTML=buses.length?buses.map(b=>{const nearest=nearestIds.has(b.id);return `<tr data-bus-id="${esc(b.id)}" class="${[b.extra?'extra-row':'',nearest?'bus-nearest-row':''].filter(Boolean).join(' ')}"><td class="bus-time">${esc(b.departure)}${nearest?'<small class="bus-nearest-label">最近</small>':''}</td><td class="arrival-time">${esc(b.arrival||'未提供')}</td><td>${esc(b.from)} <span aria-hidden="true">→</span> ${esc(b.to)}</td><td>${esc(b.trip)}<small>${b.vehicles?esc(b.vehicles)+' 辆':'车辆数量未提供'}</small></td><td>${b.extra?'<span class="tag overdue">条件增班</span>':'<span class="tag subtle">常规</span>'}${b.note?`<small>${esc(b.note)}</small>`:''}</td></tr>`;}).join(''):'<tr><td class="bus-empty" colspan="5">该日期或方向没有符合原表范围的班次。</td></tr>';
+ $('#bus-body').innerHTML=buses.length?buses.map(b=>{const nearest=nearestIds.has(b.id);return `<tr data-bus-id="${esc(b.id)}" class="${[b.extra?'extra-row':'',nearest?'bus-nearest-row':''].filter(Boolean).join(' ')}"><td class="bus-time">${esc(b.departure)}${nearest?'<small class="bus-nearest-label">距离我最近的一趟</small>':''}</td><td class="arrival-time">${esc(b.arrival||'未提供')}</td><td>${esc(b.from)} <span aria-hidden="true">→</span> ${esc(b.to)}</td><td>${esc(b.trip)}<small>${b.vehicles?esc(b.vehicles)+' 辆':'车辆数量未提供'}</small></td><td>${b.extra?'<span class="tag overdue">条件增班</span>':'<span class="tag subtle">常规</span>'}${b.note?`<small>${esc(b.note)}</small>`:''}</td></tr>`;}).join(''):'<tr><td class="bus-empty" colspan="5">该日期或方向没有符合原表范围的班次。</td></tr>';
  wireBusAutoLocate();
- locateNearestBus({behavior:'smooth'});
+}
+function renderServices(){
+ const cal=calendarData();$('#calendar-service-title').textContent=cal?.title||'学年校历';$('#calendar-current-summary').textContent=academicStatus(today);$('#calendar-fall-meta').textContent=cal?.fall?.weeks?('秋季 '+cal.fall.weeks+' 周'):'';$('#calendar-spring-meta').textContent=cal?.spring?.weeks?('春季 '+cal.spring.weeks+' 周'):'';
+ renderShuttle();
  $('.custom-services').hidden=!data.services.length;
  renderAttendance();
  $('#service-list').innerHTML=data.services.length?`<div class="service-links">${data.services.map(s=>`<article class="service-link"><span class="service-icon" style="width:33px;height:33px;border-radius:10px">${icon('link')}</span><button class="icon-button service-edit" data-action="edit-service" data-service="${esc(s.id)}" aria-label="编辑服务：${esc(s.title)}">${icon('edit')}</button><h3>${esc(s.title)}</h3>${s.description?`<p>${esc(s.description)}</p>`:''}${s.url?`<a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">打开服务 ${icon('arrow-up-right')}</a>`:''}</article>`).join('')}</div>`:'';
@@ -1185,8 +1182,8 @@ document.addEventListener('change',event=>{
  else if(el.id==='show-empty'){showEmpty=el.checked;refreshSchedule();if(scheduleControlsMobile())scheduleScheduleControlsHide(1400);}
  else if(el.name==='edit-week'||el.name==='edit-slot')updateTargetCount();
  else if(el.dataset.noteCheck){const n=data.notes.find(n=>n.id===el.dataset.noteCheck);if(n){n.done=el.checked;save();renderNotes();renderTodayReminders();}}
- else if(['bus-filter','bus-mode','bus-date'].includes(el.id))renderServices();
- else if(el.id==='bus-holiday'){if(el.checked)data.busHolidays[$('#bus-date').value]=true;else delete data.busHolidays[$('#bus-date').value];save();renderServices();}
+ else if(['bus-filter','bus-mode','bus-date'].includes(el.id)){$('#bus-all-fold').open=true;renderShuttle();}
+ else if(el.id==='bus-holiday'){if(el.checked)data.busHolidays[$('#bus-date').value]=true;else delete data.busHolidays[$('#bus-date').value];save();$('#bus-all-fold').open=true;renderShuttle();}
  else if(el.id==='attendance-multi-open'){
   attendanceMultiOpen=el.checked;
   if(!attendanceMultiOpen){
@@ -1248,24 +1245,7 @@ window.addEventListener('pageshow',event=>{if(event.persisted){today=C.localISO(
 window.addEventListener('beforeunload',event=>{if(cacheWriteFailed){event.preventDefault();event.returnValue='';}});
 setInterval(checkDate,30000);
 setInterval(()=>{if(currentTab==='services'&&$('#attendance-fold')?.open)updateAttendanceTimingUI();},30000);
-setInterval(()=>{
- if(currentTab!=='services'||!$('#bus-fold')?.open)return;
- const rows=[...document.querySelectorAll('#bus-body tr[data-bus-id]')];
- if(!rows.length)return;
- const current=new Date(),currentMinutes=current.getHours()*60+current.getMinutes();
- let best=null,bestMinutes=Infinity;
- for(const row of rows){
-  const minutes=busClockMinutes(row.querySelector('.bus-time')?.childNodes?.[0]?.textContent||row.querySelector('.bus-time')?.textContent);
-  if(!Number.isFinite(minutes)||minutes<currentMinutes)continue;
-  if(minutes<bestMinutes){best=row;bestMinutes=minutes;}
- }
- rows.forEach(row=>{
-  row.classList.toggle('bus-nearest-row',row===best);
-  const cell=row.querySelector('.bus-time'),old=cell?.querySelector('.bus-nearest-label');
-  if(row===best&&!old&&cell)cell.insertAdjacentHTML('beforeend','<small class="bus-nearest-label">最近</small>');
-  if(row!==best&&old)old.remove();
- });
-},60000);
+setInterval(()=>{if(!document.hidden&&currentTab==='services'&&$('#bus-fold')?.open)renderShuttle();},60000);
 // Always start with the true current week (or the nearest semester boundary),
 // never with a previously chosen review week from localStorage.
 refreshAll();showTab(['notes','services'].includes(location.hash.slice(1))?location.hash.slice(1):'schedule');initScheduleControlsAutoHide();
