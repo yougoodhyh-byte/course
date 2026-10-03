@@ -694,3 +694,19 @@ input::placeholder,textarea::placeholder{
 @media(max-width:650px){.bus-all-fold>summary{padding:14px 16px}}
 @media print{.bus-all-fold>summary{display:none}.bus-all-fold>.table-scroll{display:block!important}}
 .bus-nearest-card{position:relative}.bus-card-badge{display:block;width:fit-content;border-radius:7px;background:#e8f3ff;color:#2475c7;font-size:11px;padding:3px 7px;margin:7px 0}.bus-time .bus-nearest-label{display:block;width:fit-content;max-width:12em;white-space:normal;line-height:1.6;font-size:11px;padding:2px 7px;margin:6px 0 0;border-radius:7px}
+
+/* Nearest departure (green) and the following two departures (smaller, blue). */
+#stu100-bus-nearest .shuttle-preview,#bus-nearest-summary .shuttle-preview{display:block;padding:18px 20px;min-width:0}
+.shuttle-preview .shuttle-origin{display:block;margin:0 0 12px;color:#738599;font-size:12px;line-height:1.5}
+.shuttle-preview .shuttle-preview-times{display:flex;justify-content:space-between;align-items:flex-start;gap:14px 24px;flex-wrap:wrap}
+.shuttle-preview .shuttle-primary{flex:1 1 146px;min-width:0}
+.shuttle-preview .shuttle-secondary{flex:0 1 150px;min-width:0;text-align:right}
+#stu100-bus-nearest .shuttle-primary-label,#bus-nearest-summary .shuttle-primary-label{position:static;display:block;inset:auto;min-height:0;width:auto;margin:0 0 6px;padding:0;border:0;border-radius:0;background:transparent;color:#4e6f61;font-size:13px;font-weight:600;line-height:1.6;white-space:normal}
+.shuttle-preview .shuttle-time-near{display:block;margin:0;color:#218454;font-size:34px;line-height:1.2;font-weight:750;font-variant-numeric:tabular-nums;letter-spacing:.01em;grid-area:auto}
+.shuttle-preview .shuttle-secondary-label{display:block;margin:0 0 8px;color:#7187a4;font-size:11px;font-weight:500;line-height:1.6}
+.shuttle-preview .shuttle-next-times{display:flex;gap:5px 14px;justify-content:flex-end;flex-wrap:wrap}
+.shuttle-preview .shuttle-time-later{display:block;color:#2769ba;font-size:23px;line-height:1.35;font-weight:650;font-variant-numeric:tabular-nums;white-space:nowrap}
+.shuttle-preview .shuttle-route{display:block;margin:12px 0 0;color:#8391a4;font-size:11px;line-height:1.6;overflow-wrap:anywhere}
+.shuttle-preview .shuttle-ended-time{display:block;margin:0;color:#728096;font-size:26px;line-height:1.35;font-weight:650;grid-area:auto}
+@media(max-width:650px){#stu100-bus-nearest .shuttle-preview,#bus-nearest-summary .shuttle-preview{padding:15px 16px}.shuttle-preview .shuttle-preview-times{gap:14px}.shuttle-preview .shuttle-primary{flex-basis:132px}.shuttle-preview .shuttle-secondary{flex-basis:132px}.shuttle-preview .shuttle-time-near{font-size:32px}.shuttle-preview .shuttle-time-later{font-size:21px}}
+@media(max-width:380px){.shuttle-preview .shuttle-secondary{text-align:left;flex-basis:100%}.shuttle-preview .shuttle-next-times{justify-content:flex-start}.shuttle-preview .shuttle-secondary-label{margin-bottom:4px}}

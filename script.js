@@ -575,6 +575,15 @@ function wireBusAutoLocate(){
  $('#bus-all-fold').addEventListener('toggle',()=>{if($('#bus-all-fold').open)locateNearestBus({behavior:'smooth'});});
 }
 function busBeijing(){return Object.fromEntries(new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date()).map(x=>[x.type,x.value]));}
+// Three upcoming departures in the selected direction; display existing times only.
+function shuttlePreviewMarkup(origin,destination,upcoming,badgeClass){
+ const first=upcoming[0],later=upcoming.slice(1,3);
+ const title='<span class="shuttle-origin">'+esc(origin)+'发车</span>';
+ const route='<small class="shuttle-route">'+esc(origin)+' → '+esc(destination)+'</small>';
+ if(!first)return title+'<strong class="shuttle-ended-time">今日已结束</strong>'+route;
+ const next=later.length?'<div class="shuttle-secondary"><span class="shuttle-secondary-label">距离我稍远的'+(later.length===2?'两':'一')+'趟</span><div class="shuttle-next-times">'+later.map(b=>'<time class="shuttle-time-later" datetime="'+esc(b.departure)+'">'+esc(b.departure)+'</time>').join('')+'</div></div>':'';
+ return title+'<div class="shuttle-preview-times"><div class="shuttle-primary"><b class="'+badgeClass+' shuttle-primary-label">距离我最近的一趟</b><strong class="shuttle-time-near">'+esc(first.departure)+'</strong></div>'+next+'</div>'+route;
+}
 function renderShuttle(){
  const cal=calendarData(),clock=busBeijing(),busToday=clock.year+'-'+clock.month+'-'+clock.day;
  const stops=[...new Set(data.buses.flatMap(b=>[b.from,b.to]).filter(Boolean))],outStop=stops[0]||'',backStop=stops[1]||'';$('#bus-route-summary').textContent=outStop&&backStop?(outStop+' ⇄ '+backStop):'';const outOpt=$('#bus-filter option[value="out"]'),backOpt=$('#bus-filter option[value="back"]');if(outOpt)outOpt.textContent=outStop&&backStop?(outStop+' → '+backStop):'去程';if(backOpt)backOpt.textContent=outStop&&backStop?(backStop+' → '+outStop):'返程';
@@ -596,7 +605,7 @@ function renderShuttle(){
  const nearestSummary=$('#bus-nearest-summary');
  if(nearestSummary){
   nearestSummary.hidden=!live;
-  nearestSummary.innerHTML=live?origins.map(origin=>{const b=nearestBuses.find(b=>b.from===origin);return '<div class="bus-nearest-card"><span>'+esc(origin)+'发车</span>'+(b?'<b class="bus-card-badge">距离我最近的一趟</b>':'')+'<strong>'+esc(b?.departure||'今日已结束')+'</strong><small>'+esc(origin)+' → '+esc(origin===outStop?backStop:outStop)+'</small></div>';}).join(''):'';
+  nearestSummary.innerHTML=live?origins.map(origin=>{const upcoming=buses.filter(b=>b.from===origin&&busClockMinutes(b.departure)>=mins).slice(0,3);return '<div class="bus-nearest-card shuttle-preview">'+shuttlePreviewMarkup(origin,origin===outStop?backStop:outStop,upcoming,'bus-card-badge')+'</div>';}).join(''):'';
  }
  $('#bus-body').innerHTML=buses.length?buses.map(b=>{const nearest=nearestIds.has(b.id);return `<tr data-bus-id="${esc(b.id)}" class="${[b.extra?'extra-row':'',nearest?'bus-nearest-row':''].filter(Boolean).join(' ')}"><td class="bus-time">${esc(b.departure)}${nearest?'<small class="bus-nearest-label">距离我最近的一趟</small>':''}</td><td class="arrival-time">${esc(b.arrival||'未提供')}</td><td>${esc(b.from)} <span aria-hidden="true">→</span> ${esc(b.to)}</td><td>${esc(b.trip)}<small>${b.vehicles?esc(b.vehicles)+' 辆':'车辆数量未提供'}</small></td><td>${b.extra?'<span class="tag overdue">条件增班</span>':'<span class="tag subtle">常规</span>'}${b.note?`<small>${esc(b.note)}</small>`:''}</td></tr>`;}).join(''):'<tr><td class="bus-empty" colspan="5">该日期或方向没有符合原表范围的班次。</td></tr>';
  wireBusAutoLocate();
