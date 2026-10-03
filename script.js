@@ -554,13 +554,10 @@ function busClockMinutes(value){
 }
 function nearestBusId(buses,now=new Date()){
  const current=now.getHours()*60+now.getMinutes();
- let best=null,bestDistance=Infinity,bestFuture=false;
+ let best=null,bestMinutes=Infinity;
  for(const bus of buses){
-  const minutes=busClockMinutes(bus.departure);if(!Number.isFinite(minutes))continue;
-  const delta=minutes-current,distance=Math.abs(delta),future=delta>=0;
-  if(distance<bestDistance||(distance===bestDistance&&future&&!bestFuture)){
-   best=bus;bestDistance=distance;bestFuture=future;
-  }
+  const minutes=busClockMinutes(bus.departure);if(!Number.isFinite(minutes)||minutes<current)continue;
+  if(minutes<bestMinutes){best=bus;bestMinutes=minutes;}
  }
  return best?.id||'';
 }
@@ -1242,12 +1239,11 @@ setInterval(()=>{
  const rows=[...document.querySelectorAll('#bus-body tr[data-bus-id]')];
  if(!rows.length)return;
  const current=new Date(),currentMinutes=current.getHours()*60+current.getMinutes();
- let best=null,bestDistance=Infinity,bestFuture=false;
+ let best=null,bestMinutes=Infinity;
  for(const row of rows){
   const minutes=busClockMinutes(row.querySelector('.bus-time')?.childNodes?.[0]?.textContent||row.querySelector('.bus-time')?.textContent);
-  if(!Number.isFinite(minutes))continue;
-  const delta=minutes-currentMinutes,distance=Math.abs(delta),future=delta>=0;
-  if(distance<bestDistance||(distance===bestDistance&&future&&!bestFuture)){best=row;bestDistance=distance;bestFuture=future;}
+  if(!Number.isFinite(minutes)||minutes<currentMinutes)continue;
+  if(minutes<bestMinutes){best=row;bestMinutes=minutes;}
  }
  rows.forEach(row=>{
   row.classList.toggle('bus-nearest-row',row===best);
