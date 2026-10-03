@@ -594,6 +594,43 @@ function attendanceRandomNameHTML(name){
    :'<span class="attendance-random-char"><span>'+esc(ch)+'</span></span>';
  }).join('');
 }
+function attendanceMarkedTone(value){
+ const text=String(value||'');
+ if(/[āēīōūǖ]/.test(text))return '1';
+ if(/[áéíóúǘ]/.test(text))return '2';
+ if(/[ǎěǐǒǔǚ]/.test(text))return '3';
+ if(/[àèìòùǜ]/.test(text))return '4';
+ return '';
+}
+function attendanceNamePinyinParts(name){
+ const chars=[...String(name||'')],isChinese=ch=>/[\u3400-\u9fff\uf900-\ufaff]/.test(ch);
+ try{
+  const api=window.pinyinPro?.pinyin;
+  if(typeof api==='function'){
+   const opts={type:'array',surname:'head',traditional:true,toneSandhi:false};
+   const marked=api(String(name||''),{...opts,toneType:'symbol'});
+   const numbered=api(String(name||''),{...opts,toneType:'num'});
+   if(Array.isArray(marked)&&Array.isArray(numbered)){
+    return chars.map((ch,i)=>{
+     if(!isChinese(ch))return {ch,pinyin:'',tone:''};
+     const py=String(marked[i]||RARE_NAME_PRONUNCIATION[ch]||'').trim();
+     const num=String(numbered[i]||'').trim().match(/([0-5])$/)?.[1]||attendanceMarkedTone(py);
+     return {ch,pinyin:py,tone:num==='0'?'轻':num};
+    });
+   }
+  }
+ }catch(error){console.warn('姓名拼音生成失败，使用本地回退。',error);}
+ return chars.map(ch=>{
+  const py=isChinese(ch)?String(RARE_NAME_PRONUNCIATION[ch]||''):'';
+  return {ch,pinyin:py,tone:attendanceMarkedTone(py)};
+ });
+}
+function attendanceStudentNameHTML(name){
+ return attendanceNamePinyinParts(name).map(part=>{
+  if(!part.pinyin)return '<span class="attendance-name-plain">'+esc(part.ch)+'</span>';
+  return '<ruby class="attendance-name-ruby"><span class="attendance-name-hanzi">'+esc(part.ch)+'</span><rt><span class="attendance-name-pinyin">'+esc(part.pinyin)+'</span>'+(part.tone?'<sup class="attendance-name-tone">'+esc(part.tone)+'</sup>':'')+'</rt></ruby>';
+ }).join('');
+}
 function attendanceRequiredCourses(){
  const seen=new Set(),out=[];
  for(const m of ATTENDANCE_MATCHERS){const c=data.courses.find(c=>m.test(c.name));if(c&&!seen.has(c.id)){seen.add(c.id);out.push({course:c,display:m.display(c.name)});}}
@@ -794,7 +831,7 @@ function renderAttendance(){
    for(const st of students){
     const randomSelected=!!randomStudentId&&st.id===randomStudentId,visible=randomStudentId?randomSelected:(query?attendanceStudentMatches(st,query):expanded);
     body+='<tr data-attendance-student-row data-student-id="'+esc(st.id)+'" data-name="'+esc(String(st.name||'').toLowerCase())+'" data-student-no="'+esc(String(st.studentNo||'').toLowerCase())+'" class="'+(randomSelected?'attendance-random-selected':'')+'"'+(visible?'':' hidden')+'>';
-    body+='<td class="attendance-name"><span class="attendance-student-name">'+esc(st.name)+'</span><span class="attendance-student-actions"><button class="attendance-student-edit" data-action="attendance-edit-student" data-course="'+esc(course.id)+'" data-student="'+esc(st.id)+'" aria-label="编辑学生 '+esc(st.name)+'" title="编辑学生">'+icon('edit')+'</button><button class="attendance-student-delete" data-action="attendance-delete-student" data-course="'+esc(course.id)+'" data-student="'+esc(st.id)+'" aria-label="删除学生 '+esc(st.name)+'" title="删除学生">×</button></span></td>';
+    body+='<td class="attendance-name"><span class="attendance-student-name" aria-label="'+esc(st.name)+'">'+attendanceStudentNameHTML(st.name)+'</span><span class="attendance-student-actions"><button class="attendance-student-edit" data-action="attendance-edit-student" data-course="'+esc(course.id)+'" data-student="'+esc(st.id)+'" aria-label="编辑学生 '+esc(st.name)+'" title="编辑学生">'+icon('edit')+'</button><button class="attendance-student-delete" data-action="attendance-delete-student" data-course="'+esc(course.id)+'" data-student="'+esc(st.id)+'" aria-label="删除学生 '+esc(st.name)+'" title="删除学生">×</button></span></td>';
     for(const date of dates){
      const value=attendanceValue(sheet,st.id,date),nearestClass=date===nearestDate?'attendance-nearest-col':'',activeClass=date===activeDate?' attendance-active-col':'';
      body+='<td class="'+(nearestClass+activeClass).trim()+'" data-attendance-date="'+esc(date)+'"><select class="attendance-status '+attendanceStatusClass(value)+'" data-attendance-course="'+esc(course.id)+'" data-student="'+esc(st.id)+'" data-date="'+esc(date)+'" aria-label="'+esc(st.name)+' '+esc(date)+'考勤">';
