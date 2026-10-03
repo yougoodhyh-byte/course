@@ -580,7 +580,16 @@ function renderServices(){
  if(!$('#bus-date').value)$('#bus-date').value=today;
  const date=$('#bus-date').value,holiday=!!data.busHolidays?.[date];
  const buses=C.busesFor(data.buses,date,mode,holiday).filter(b=>direction==='all'||(direction==='out'?b.from===outStop:b.from===backStop)).sort((a,b)=>a.departure.localeCompare(b.departure)||a.order-b.order);
- const nearestId=nearestBusId(buses,new Date());
+ const busNow=new Date(),nearestIds=new Set();
+ if(direction==='all'){
+  const outNearest=nearestBusId(buses.filter(b=>b.from===outStop),busNow);
+  const backNearest=nearestBusId(buses.filter(b=>b.from===backStop),busNow);
+  if(outNearest)nearestIds.add(outNearest);
+  if(backNearest)nearestIds.add(backNearest);
+ }else{
+  const nearest=nearestBusId(buses,busNow);if(nearest)nearestIds.add(nearest);
+ }
+ const nearestBuses=buses.filter(b=>nearestIds.has(b.id));
  const weekday=Number.isFinite(C.dayValue(date))?new Date(C.dayValue(date)*86400000).getUTCDay():null;
  $('#bus-date-label').hidden=mode!=='date';
  $('#bus-holiday-control').hidden=mode!=='date'||weekday!==3||date<'2026-09-21'||date>'2027-01-10';
@@ -590,7 +599,12 @@ function renderServices(){
  $('#bus-fold-meta').textContent=buses.length?buses.length+'条':'';
  $('#calendar-fold-meta').textContent=cal?.fall?.weeks&&cal?.spring?.weeks?(cal.fall.weeks+' + '+cal.spring.weeks+'周'):'';
  $('#bus-rule-summary').textContent=mode==='date'?'按原表筛选；条件增班及节假日运行情况请核对学校通知。':'含条件增班，适用范围见各行说明。';
- $('#bus-body').innerHTML=buses.length?buses.map(b=>{const nearest=b.id===nearestId;return `<tr data-bus-id="${esc(b.id)}" class="${[b.extra?'extra-row':'',nearest?'bus-nearest-row':''].filter(Boolean).join(' ')}"><td class="bus-time">${esc(b.departure)}${nearest?'<small class="bus-nearest-label">最近</small>':''}</td><td class="arrival-time">${esc(b.arrival||'未提供')}</td><td>${esc(b.from)} <span aria-hidden="true">→</span> ${esc(b.to)}</td><td>${esc(b.trip)}<small>${b.vehicles?esc(b.vehicles)+' 辆':'车辆数量未提供'}</small></td><td>${b.extra?'<span class="tag overdue">条件增班</span>':'<span class="tag subtle">常规</span>'}${b.note?`<small>${esc(b.note)}</small>`:''}</td></tr>`;}).join(''):'<tr><td class="bus-empty" colspan="5">该日期或方向没有符合原表范围的班次。</td></tr>';
+ const nearestSummary=$('#bus-nearest-summary');
+ if(nearestSummary){
+  nearestSummary.hidden=!nearestBuses.length;
+  nearestSummary.innerHTML=nearestBuses.map(b=>'<div class="bus-nearest-card"><span>'+esc(b.from)+'发车</span><strong>'+esc(b.departure)+'</strong><small>'+esc(b.from)+' → '+esc(b.to)+'</small></div>').join('');
+ }
+ $('#bus-body').innerHTML=buses.length?buses.map(b=>{const nearest=nearestIds.has(b.id);return `<tr data-bus-id="${esc(b.id)}" class="${[b.extra?'extra-row':'',nearest?'bus-nearest-row':''].filter(Boolean).join(' ')}"><td class="bus-time">${esc(b.departure)}${nearest?'<small class="bus-nearest-label">最近</small>':''}</td><td class="arrival-time">${esc(b.arrival||'未提供')}</td><td>${esc(b.from)} <span aria-hidden="true">→</span> ${esc(b.to)}</td><td>${esc(b.trip)}<small>${b.vehicles?esc(b.vehicles)+' 辆':'车辆数量未提供'}</small></td><td>${b.extra?'<span class="tag overdue">条件增班</span>':'<span class="tag subtle">常规</span>'}${b.note?`<small>${esc(b.note)}</small>`:''}</td></tr>`;}).join(''):'<tr><td class="bus-empty" colspan="5">该日期或方向没有符合原表范围的班次。</td></tr>';
  wireBusAutoLocate();
  locateNearestBus({behavior:'smooth'});
  $('.custom-services').hidden=!data.services.length;
