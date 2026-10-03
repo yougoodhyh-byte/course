@@ -628,11 +628,9 @@ const RARE_NAME_PRONUNCIATION={
  '妤':'yú'
 };
 function attendanceRandomNameHTML(name){
- return [...String(name||'')].map(ch=>{
-  const pronunciation=RARE_NAME_PRONUNCIATION[ch];
-  return pronunciation
-   ?'<span class="attendance-random-char is-rare"><span class="attendance-random-pinyin">'+esc(pronunciation)+'</span><span>'+esc(ch)+'</span></span>'
-   :'<span class="attendance-random-char"><span>'+esc(ch)+'</span></span>';
+ return attendanceNamePinyinParts(name).map(part=>{
+  if(!part.pinyin)return '<span class="attendance-random-char"><span>'+esc(part.ch)+'</span></span>';
+  return '<span class="attendance-random-char is-pronounced"><span class="attendance-random-pinyin">'+esc(part.pinyin)+(part.tone?'<sup class="attendance-random-tone">'+esc(part.tone)+'</sup>':'')+'</span><span>'+esc(part.ch)+'</span></span>';
  }).join('');
 }
 function attendanceMarkedTone(value){
