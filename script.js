@@ -546,6 +546,36 @@ function calendarPhase(term,week){return (term.weekPhases||[]).find(p=>week>=Num
 function calendarSpecial(term,week){return term.weekNotes?.[String(week)]||'';}
 function formatCalendarDate(iso){return iso.replaceAll('-','.');}
 function renderCalendar(){const cal=calendarData();if(!cal){toast('校历尚未从云端载入。',true);return;}const term=cal[calendarTerm]||cal.fall,currentWeek=academicWeekFor(term.weekStart,term.weeks,today);$('#calendar-title').textContent=cal.title||'学年校历';$$('#calendar-term-switch button').forEach(b=>{const active=b.dataset.term===calendarTerm;b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active));});$('#calendar-term-range').textContent=term.range||'';$('#calendar-week-note').textContent=(term.weekPhases||[]).map(p=>`第${p.from===p.to?p.from:p.from+'—'+p.to}周${p.label}`).join('，')+'。';$('#calendar-events').innerHTML=(term.events||[]).map(e=>`<article class="calendar-event ${esc(e.tone||'')}"><span>${esc(e.date||'')}</span><div><strong>${esc(e.title||'')}</strong><p>${esc(e.detail||'')}</p></div></article>`).join('');$('#calendar-weeks').innerHTML=Array.from({length:Number(term.weeks||0)},(_,i)=>{const w=i+1,r=academicWeekRange(term.weekStart,w),phase=calendarPhase(term,w),special=calendarSpecial(term,w),phaseClass=phase.includes('实践')?'practice':phase.includes('考试')?'exam':'teaching';return `<div class="calendar-week${currentWeek===w?' is-current':''}"><div class="calendar-week-top"><strong>第${w}周</strong><span class="calendar-phase phase-${phaseClass}">${esc(phase)}</span></div><p>${formatCalendarDate(r.start)} — ${formatCalendarDate(r.end)}</p>${special?`<small>${esc(special)}</small>`:''}${currentWeek===w?'<span class="calendar-now">当前</span>':''}</div>`;}).join('');$('#calendar-class-times').innerHTML=C.TIMES.map(p=>`<div><strong>${esc(p.code)}</strong><span>${esc(p.start)}–${esc(p.end)}</span></div>`).join('');$('#calendar-exam-times').innerHTML=(cal.examTimes||[]).map(([name,start,end])=>`<div><strong>${esc(name)}</strong><span>${esc(start)}–${esc(end)}</span></div>`).join('');}
+function busClockMinutes(value){
+ const m=String(value||'').trim().match(/^(\d{1,2}):(\d{2})$/);
+ if(!m)return NaN;
+ const h=Number(m[1]),min=Number(m[2]);
+ return h>=0&&h<24&&min>=0&&min<60?h*60+min:NaN;
+}
+function nearestBusId(buses,now=new Date()){
+ const current=now.getHours()*60+now.getMinutes();
+ let best=null,bestDistance=Infinity,bestFuture=false;
+ for(const bus of buses){
+  const minutes=busClockMinutes(bus.departure);if(!Number.isFinite(minutes))continue;
+  const delta=minutes-current,distance=Math.abs(delta),future=delta>=0;
+  if(distance<bestDistance||(distance===bestDistance&&future&&!bestFuture)){
+   best=bus;bestDistance=distance;bestFuture=future;
+  }
+ }
+ return best?.id||'';
+}
+function locateNearestBus({behavior='smooth'}={}){
+ const fold=$('#bus-fold');if(!fold?.open)return;
+ requestAnimationFrame(()=>{
+  const row=$('#bus-body tr.bus-nearest-row');if(!row)return;
+  row.scrollIntoView({behavior,block:'center',inline:'nearest'});
+ });
+}
+function wireBusAutoLocate(){
+ const fold=$('#bus-fold');if(!fold||fold.dataset.autoLocateWired)return;
+ fold.dataset.autoLocateWired='1';
+ fold.addEventListener('toggle',()=>{if(fold.open)locateNearestBus({behavior:'smooth'});});
+}
 function renderServices(){
  const cal=calendarData();$('#calendar-service-title').textContent=cal?.title||'学年校历';$('#calendar-current-summary').textContent=academicStatus(today);$('#calendar-fall-meta').textContent=cal?.fall?.weeks?('秋季 '+cal.fall.weeks+' 周'):'';$('#calendar-spring-meta').textContent=cal?.spring?.weeks?('春季 '+cal.spring.weeks+' 周'):'';
  const stops=[...new Set(data.buses.flatMap(b=>[b.from,b.to]).filter(Boolean))],outStop=stops[0]||'',backStop=stops[1]||'';$('#bus-route-summary').textContent=outStop&&backStop?(outStop+' ⇄ '+backStop):'';const outOpt=$('#bus-filter option[value="out"]'),backOpt=$('#bus-filter option[value="back"]');if(outOpt)outOpt.textContent=outStop&&backStop?(outStop+' → '+backStop):'去程';if(backOpt)backOpt.textContent=outStop&&backStop?(backStop+' → '+outStop):'返程';
@@ -553,6 +583,7 @@ function renderServices(){
  if(!$('#bus-date').value)$('#bus-date').value=today;
  const date=$('#bus-date').value,holiday=!!data.busHolidays?.[date];
  const buses=C.busesFor(data.buses,date,mode,holiday).filter(b=>direction==='all'||(direction==='out'?b.from===outStop:b.from===backStop)).sort((a,b)=>a.departure.localeCompare(b.departure)||a.order-b.order);
+ const nearestId=nearestBusId(buses,new Date());
  const weekday=Number.isFinite(C.dayValue(date))?new Date(C.dayValue(date)*86400000).getUTCDay():null;
  $('#bus-date-label').hidden=mode!=='date';
  $('#bus-holiday-control').hidden=mode!=='date'||weekday!==3||date<'2026-09-21'||date>'2027-01-10';
@@ -562,7 +593,9 @@ function renderServices(){
  $('#bus-fold-meta').textContent=buses.length?buses.length+'条':'';
  $('#calendar-fold-meta').textContent=cal?.fall?.weeks&&cal?.spring?.weeks?(cal.fall.weeks+' + '+cal.spring.weeks+'周'):'';
  $('#bus-rule-summary').textContent=mode==='date'?'按原表筛选；条件增班及节假日运行情况请核对学校通知。':'含条件增班，适用范围见各行说明。';
- $('#bus-body').innerHTML=buses.length?buses.map(b=>`<tr data-bus-id="${esc(b.id)}" class="${b.extra?'extra-row':''}"><td class="bus-time">${esc(b.departure)}</td><td class="arrival-time">${esc(b.arrival||'未提供')}</td><td>${esc(b.from)} <span aria-hidden="true">→</span> ${esc(b.to)}</td><td>${esc(b.trip)}<small>${b.vehicles?esc(b.vehicles)+' 辆':'车辆数量未提供'}</small></td><td>${b.extra?'<span class="tag overdue">条件增班</span>':'<span class="tag subtle">常规</span>'}${b.note?`<small>${esc(b.note)}</small>`:''}</td></tr>`).join(''):'<tr><td class="bus-empty" colspan="5">该日期或方向没有符合原表范围的班次。</td></tr>';
+ $('#bus-body').innerHTML=buses.length?buses.map(b=>{const nearest=b.id===nearestId;return `<tr data-bus-id="${esc(b.id)}" class="${[b.extra?'extra-row':'',nearest?'bus-nearest-row':''].filter(Boolean).join(' ')}"><td class="bus-time">${esc(b.departure)}${nearest?'<small class="bus-nearest-label">最近</small>':''}</td><td class="arrival-time">${esc(b.arrival||'未提供')}</td><td>${esc(b.from)} <span aria-hidden="true">→</span> ${esc(b.to)}</td><td>${esc(b.trip)}<small>${b.vehicles?esc(b.vehicles)+' 辆':'车辆数量未提供'}</small></td><td>${b.extra?'<span class="tag overdue">条件增班</span>':'<span class="tag subtle">常规</span>'}${b.note?`<small>${esc(b.note)}</small>`:''}</td></tr>`;}).join(''):'<tr><td class="bus-empty" colspan="5">该日期或方向没有符合原表范围的班次。</td></tr>';
+ wireBusAutoLocate();
+ locateNearestBus({behavior:'smooth'});
  $('.custom-services').hidden=!data.services.length;
  renderAttendance();
  $('#service-list').innerHTML=data.services.length?`<div class="service-links">${data.services.map(s=>`<article class="service-link"><span class="service-icon" style="width:33px;height:33px;border-radius:10px">${icon('link')}</span><button class="icon-button service-edit" data-action="edit-service" data-service="${esc(s.id)}" aria-label="编辑服务：${esc(s.title)}">${icon('edit')}</button><h3>${esc(s.title)}</h3>${s.description?`<p>${esc(s.description)}</p>`:''}${s.url?`<a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">打开服务 ${icon('arrow-up-right')}</a>`:''}</article>`).join('')}</div>`:'';
@@ -1204,6 +1237,25 @@ window.addEventListener('pageshow',event=>{if(event.persisted){today=C.localISO(
 window.addEventListener('beforeunload',event=>{if(cacheWriteFailed){event.preventDefault();event.returnValue='';}});
 setInterval(checkDate,30000);
 setInterval(()=>{if(currentTab==='services'&&$('#attendance-fold')?.open)updateAttendanceTimingUI();},30000);
+setInterval(()=>{
+ if(currentTab!=='services'||!$('#bus-fold')?.open)return;
+ const rows=[...document.querySelectorAll('#bus-body tr[data-bus-id]')];
+ if(!rows.length)return;
+ const current=new Date(),currentMinutes=current.getHours()*60+current.getMinutes();
+ let best=null,bestDistance=Infinity,bestFuture=false;
+ for(const row of rows){
+  const minutes=busClockMinutes(row.querySelector('.bus-time')?.childNodes?.[0]?.textContent||row.querySelector('.bus-time')?.textContent);
+  if(!Number.isFinite(minutes))continue;
+  const delta=minutes-currentMinutes,distance=Math.abs(delta),future=delta>=0;
+  if(distance<bestDistance||(distance===bestDistance&&future&&!bestFuture)){best=row;bestDistance=distance;bestFuture=future;}
+ }
+ rows.forEach(row=>{
+  row.classList.toggle('bus-nearest-row',row===best);
+  const cell=row.querySelector('.bus-time'),old=cell?.querySelector('.bus-nearest-label');
+  if(row===best&&!old&&cell)cell.insertAdjacentHTML('beforeend','<small class="bus-nearest-label">最近</small>');
+  if(row!==best&&old)old.remove();
+ });
+},60000);
 // Always start with the true current week (or the nearest semester boundary),
 // never with a previously chosen review week from localStorage.
 refreshAll();showTab(['notes','services'].includes(location.hash.slice(1))?location.hash.slice(1):'schedule');initScheduleControlsAutoHide();
